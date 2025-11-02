@@ -197,7 +197,70 @@ The GraphQL Playground automatically uses introspection to provide autocomplete 
 - **[CHANGELOG](dev/docs/CHANGELOG.md)** - Release history and changes
 - **[ROCKET_LAUNCH](dev/docs/ROCKET_LAUNCH.md)** - Project launch documentation
 
+## TODO
+
+### Testing & Quality
+- [ ] Add comprehensive unit tests for core functionality
+- [ ] Add integration tests for schema building and execution
+- [ ] Add benchmark tests for performance monitoring
+- [ ] Add test coverage reporting
+- [ ] Set up test examples/demos in separate examples directory
+- [ ] Add fuzzing for schema parsing and execution
+
+### Error Handling & Validation
+- [ ] Improve error messages with better context
+- [ ] Add validation for resolver function signatures
+- [ ] Add schema validation warnings
+- [ ] Better error handling for malformed queries
+- [ ] Add panic recovery middleware for resolvers
+
+### Features & Functionality
+- [ ] Subscriptions support (WebSocket)
+- [ ] DataLoader implementation for N+1 query prevention
+- [ ] Custom scalar types (Date, DateTime, JSON, etc.)
+- [ ] Field-level middleware/directives
+- [ ] GraphQL Federation support
+- [ ] Query complexity analysis
+- [ ] Query depth limiting
+- [ ] Rate limiting support
+- [ ] Caching layer for queries
+- [ ] Batch request support
+
+### Developer Experience
+- [ ] GoDoc comments for all public APIs
+- [ ] Code generation tool for resolver boilerplate
+- [ ] Schema validation CLI tool
+- [ ] Better type safety for ResolveParams Args
+- [ ] Middleware support for resolvers
+- [ ] Context propagation utilities
+- [ ] Logging integration hooks
+- [ ] Metrics/observability hooks
+
+### Performance
+- [ ] Optimize field order preservation
+- [ ] Add query result caching
+- [ ] Parallel resolver execution where safe
+- [ ] Reduce allocations in hot paths
+- [ ] Profile and optimize schema building
+
+### Documentation
+- [ ] Add Go examples to godoc
+- [ ] Create interactive tutorials
+- [ ] Add migration guide from other GraphQL libraries
+- [ ] Add troubleshooting guide
+- [ ] API reference documentation
+- [ ] Best practices guide
+
+### Infrastructure
+- [ ] Add Go 1.26+ support
+- [ ] Test compatibility across Go versions
+- [ ] Add GitHub Actions for automated releases
+- [ ] Set up automated dependency updates (Dependabot)
+- [ ] Add security scanning (CodeQL)
+
 ## Coming Soon
+
+These are planned for future releases:
 
 - [ ] Subscriptions support
 - [ ] DataLoader for N+1 prevention
