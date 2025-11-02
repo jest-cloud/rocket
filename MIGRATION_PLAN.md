@@ -82,3 +82,22 @@ We need to create a custom DataSource that bridges Rocket's resolver pattern to 
 5. ⏳ Test auto-resolution works
 6. ⏳ Remove graphql-go dependency
 
+## 🎁 Bonus: Federation Support
+
+**graphql-go-tools is designed for federation!** This is a major advantage:
+
+✅ **GraphQL Federation v1 & v2**: Rocket will natively support federation
+✅ **Subgraph Support**: Rocket schemas can be exposed as federation subgraphs  
+✅ **Federated Composition**: Multiple Rocket instances can be composed into a federated graph
+✅ **Entity Resolution**: Built-in entity resolution across services
+✅ **Service Composition**: Automatic service composition with graphql-go-tools
+
+This is a **huge advantage** over graphql-go, which doesn't have federation support!
+The migration gives us federation capabilities "for free" - no additional work needed!
+
+### Future Federation Features
+- Expose Rocket schemas as federated subgraphs
+- Compose multiple Rocket services into a federated supergraph
+- Entity resolution across multiple Rocket instances
+- Cross-service field resolution
+
