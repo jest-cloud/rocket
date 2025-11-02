@@ -269,6 +269,31 @@ These are planned for future releases:
 - [ ] GraphQL Federation
 - [ ] Query complexity analysis
 
+## Contributing
+
+We welcome contributions from anyone who would like to get involved! Rocket is an open-source project and we'd love your help making it better.
+
+### How to Contribute
+
+- **Report bugs** - Open an issue if you find a bug
+- **Suggest features** - Share your ideas for improvements
+- **Submit pull requests** - Pick any item from the TODO list above, or fix bugs
+- **Improve documentation** - Help make our docs clearer and more comprehensive
+- **Write tests** - Increase test coverage and improve reliability
+
+### Getting Started
+
+1. Fork the repository
+2. Create a branch for your contribution (`git checkout -b feature/amazing-feature`)
+3. Make your changes
+4. Add tests if applicable
+5. Ensure all tests pass (`go test ./...`)
+6. Commit your changes (`git commit -m 'Add amazing feature'`)
+7. Push to your branch (`git push origin feature/amazing-feature`)
+8. Open a Pull Request
+
+Check out the [TODO](#todo) section above for ideas on what to work on, or feel free to contribute in any way you'd like!
+
 ## License
 
 MIT
