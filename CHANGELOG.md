@@ -17,7 +17,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 - Initial Rocket release
-- Apollo-like resolver patterns for Go
+- Developer-friendly resolver patterns for Go
 - Schema-first development with `.graphql` files
 - Modular architecture with `ModuleResolvers` interface
 - Auto-field resolution for struct fields

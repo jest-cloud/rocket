@@ -7,8 +7,8 @@ import (
 )
 
 // DefaultFieldResolver automatically resolves struct fields to GraphQL fields
-// This is similar to Apollo's default field resolver in TypeScript
 // It uses reflection to map GraphQL field names to Go struct fields
+// This provides a developer-friendly auto-resolution feature
 func DefaultFieldResolver(p ResolveParams) (interface{}, error) {
 	if p.Source == nil {
 		return nil, nil

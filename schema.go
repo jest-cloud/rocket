@@ -12,7 +12,7 @@ import (
 )
 
 // BuildSchema builds an executable GraphQL schema from .graphql file and module resolvers
-// This is the main entry point for Rocket - similar to makeExecutableSchema in Apollo
+// This is the main entry point for Rocket
 func BuildSchema(config Config, modules ...ModuleResolvers) (*Schema, error) {
 	// Read schema file
 	schemaBytes, err := os.ReadFile(config.SchemaPath)
@@ -56,7 +56,7 @@ type Schema struct {
 }
 
 // Execute executes a GraphQL query/mutation
-// Field order is always preserved (Apollo-like behavior)
+// Field order is always preserved for better developer experience
 func (s *Schema) Execute(ctx context.Context, query string, variables map[string]interface{}, operationName string) *Result {
 	params := graphql.Params{
 		Schema:         s.executableSchema,

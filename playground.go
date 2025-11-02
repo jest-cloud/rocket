@@ -9,13 +9,13 @@ import (
 type PlaygroundType string
 
 const (
-	PlaygroundTypeApolloSandbox PlaygroundType = "apollo"     // Apollo Sandbox (recommended)
+	PlaygroundTypeApolloSandbox PlaygroundType = "apollo"     // Modern sandbox (recommended)
 	PlaygroundTypeGraphiQL      PlaygroundType = "graphiql"   // GraphiQL (stable)
 	PlaygroundTypePlayground    PlaygroundType = "playground" // GraphQL Playground (legacy)
 )
 
 // PlaygroundHandler creates an HTTP handler that serves a GraphQL playground
-// Uses Apollo Sandbox by default (most modern and stable)
+// Uses modern sandbox by default (most modern and stable)
 func PlaygroundHandler(endpoint string) http.HandlerFunc {
 	return PlaygroundHandlerWithType(endpoint, PlaygroundTypeApolloSandbox)
 }
@@ -58,12 +58,12 @@ func PlaygroundHandlerWithType(endpoint string, playgroundType PlaygroundType) h
 	}
 }
 
-// Apollo Sandbox (modern, recommended - Apollo's official playground)
+// Modern GraphQL Sandbox (recommended - best-in-class DX)
 const apolloSandboxHTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
 	<meta charset="utf-8">
-	<title>GraphQL Playground - Apollo Sandbox</title>
+	<title>GraphQL Playground</title>
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<style>
 		body {

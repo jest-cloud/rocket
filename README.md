@@ -1,10 +1,10 @@
 # 🚀 Rocket
 
-**Apollo GraphQL for Go** - Bringing TypeScript GraphQL developer experience to Golang.
+**Developer-friendly GraphQL for Go** - Bringing a modern, DX-focused approach to GraphQL development in Golang.
 
 ## Philosophy
 
-Rocket is inspired by Apollo GraphQL and aims to bring the same developer-friendly patterns to Go:
+Rocket aims to bring a more developer-friendly approach to GraphQL in Go:
 
 - **Schema-First**: Define your API in `.graphql` files
 - **Modular Resolvers**: Each module owns its resolvers
@@ -22,7 +22,7 @@ Rocket is inspired by Apollo GraphQL and aims to bring the same developer-friend
 - ⚡ **Hot reload support** - Auto-recompile schemas on change
 - 🎨 **Field order preservation** - Responses match query field order
 - 🏗️ **Built on Wundergraph** - Production-grade GraphQL tools
-- 🎮 **Apollo Sandbox** - Modern playground with best-in-class DX
+- 🎮 **Modern Playground** - Built-in GraphQL playground with best-in-class DX
 
 ## Quick Start
 
@@ -116,9 +116,9 @@ func main() {
 }
 ```
 
-## Comparison with TypeScript Apollo
+## Comparison with TypeScript GraphQL
 
-### TypeScript Apollo
+### TypeScript GraphQL
 
 ```typescript
 const resolvers = {
@@ -175,7 +175,7 @@ Rocket Package
 ## Why Rocket?
 
 - 🚀 **Fast to develop** - Write less code, get more done
-- 🎯 **Familiar patterns** - If you know Apollo, you know Rocket
+- 🎯 **Developer-friendly** - Intuitive patterns that reduce boilerplate
 - 💪 **Production-ready** - Built on Wundergraph's battle-tested tools
 - 🔧 **Flexible** - Override anything when you need to
 - 📦 **Modular** - Clean separation of concerns
@@ -205,5 +205,5 @@ MIT
 
 ---
 
-**Rocket**: Making GraphQL in Go feel like TypeScript Apollo 🚀
+**Rocket**: A developer-friendly approach to GraphQL in Go 🚀
 

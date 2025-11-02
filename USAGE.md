@@ -350,7 +350,7 @@ Check:
 
 ## Philosophy
 
-Rocket believes GraphQL in Go should feel like TypeScript Apollo:
+Rocket believes GraphQL in Go should be developer-friendly:
 
 ✅ **Declarative** - Maps, not switch statements  
 ✅ **Convention over configuration** - Sensible defaults  
@@ -360,5 +360,5 @@ Rocket believes GraphQL in Go should feel like TypeScript Apollo:
 
 ---
 
-**Rocket: Apollo GraphQL patterns for Go** 🚀
+**Rocket: A developer-friendly approach to GraphQL in Go** 🚀
 

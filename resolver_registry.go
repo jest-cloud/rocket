@@ -1,7 +1,7 @@
 package rocket
 
 // ResolverRegistry holds all resolvers stitched together
-// Similar to how Apollo combines resolvers from different modules
+// Combines resolvers from different modules in a clean, modular way
 type ResolverRegistry struct {
 	Query    map[string]FieldResolveFn
 	Mutation map[string]FieldResolveFn

@@ -2,14 +2,14 @@
 
 Rocket supports multiple GraphQL playground interfaces. Choose the one that fits your needs.
 
-## Apollo Sandbox (Default - Recommended) ⭐
+## Modern GraphQL Sandbox (Default - Recommended) ⭐
 
-**Apollo Sandbox** is the official playground from Apollo GraphQL. It's modern, feature-rich, and provides the best developer experience.
+**Modern GraphQL Sandbox** is a modern, feature-rich playground that provides the best developer experience.
 
 ### Usage
 
 ```go
-// Default handler (uses Apollo Sandbox)
+// Default handler (uses modern sandbox)
 http.HandleFunc("/graphql", rocket.PlaygroundHandler("/graphql"))
 ```
 
@@ -22,12 +22,12 @@ http.HandleFunc("/graphql", rocket.PlaygroundHandler("/graphql"))
 - 🔐 Header management for authentication
 - 📊 Response time metrics
 - 🎯 Real-time query linting and validation
-- ☁️ Cloud sync (optional - requires Apollo account)
+- ☁️ Cloud sync (optional)
 - 🎨 Dark/light theme support
 
-### Why Apollo Sandbox?
+### Why Modern Sandbox?
 
-- **Most stable** - Actively maintained by Apollo
+- **Most stable** - Actively maintained
 - **Best autocomplete** - Rarely gets stuck
 - **Modern UX** - Clean, intuitive interface
 - **Production-ready** - Used by thousands of companies
@@ -81,7 +81,7 @@ http.HandleFunc("/graphql", rocket.PlaygroundHandlerWithType(
 
 ## Choosing a Playground
 
-| Feature | Apollo Sandbox | GraphiQL | Playground |
+| Feature | Modern Sandbox | GraphiQL | Playground |
 |---------|---------------|----------|------------|
 | Stability | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ |
 | Autocomplete | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ |
@@ -90,7 +90,7 @@ http.HandleFunc("/graphql", rocket.PlaygroundHandlerWithType(
 | Performance | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ |
 | Maintenance | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐ |
 
-**Recommendation**: Use **Apollo Sandbox** (default) for the best experience.
+**Recommendation**: Use **Modern Sandbox** (default) for the best experience.
 
 ## Example: Gin Router
 
@@ -110,7 +110,7 @@ router.GET("/graphql", gin.WrapH(rocket.PlaygroundHandler("/graphql")))
 
 // Or specify a type
 router.GET("/playground", gin.WrapH(
-    rocket.PlaygroundHandlerWithType("/graphql", rocket.PlaygroundTypeApolloSandbox),
+    rocket.PlaygroundHandlerWithType("/graphql", rocket.PlaygroundTypeApolloSandbox), // Modern sandbox
 ))
 ```
 
@@ -141,7 +141,7 @@ router.GET("/playground", gin.WrapH(rocket.PlaygroundHandler("/graphql")))
 ## CDN and Security
 
 All playgrounds load from CDNs:
-- **Apollo Sandbox**: `embeddable-sandbox.cdn.apollographql.com`
+- **Modern Sandbox**: `embeddable-sandbox.cdn.apollographql.com`
 - **GraphiQL**: `unpkg.com`
 - **GraphQL Playground**: `cdn.jsdelivr.net`
 

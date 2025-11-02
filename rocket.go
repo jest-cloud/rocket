@@ -1,5 +1,5 @@
-// Package rocket provides Apollo GraphQL-like patterns for Go
-// Bringing TypeScript developer experience to Golang GraphQL development
+// Package rocket provides developer-friendly GraphQL patterns for Go
+// Bringing a modern, DX-focused approach to GraphQL development in Golang
 package rocket
 
 import (
@@ -27,7 +27,7 @@ type ResolveInfo struct {
 type FieldResolveFn func(p ResolveParams) (interface{}, error)
 
 // ModuleResolvers is the interface that all module resolvers must implement
-// This is similar to how you export resolvers in TypeScript Apollo
+// This provides a clean, modular approach to organizing resolvers
 type ModuleResolvers interface {
 	QueryResolvers() map[string]FieldResolveFn
 	MutationResolvers() map[string]FieldResolveFn
