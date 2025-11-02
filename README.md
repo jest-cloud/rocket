@@ -115,11 +115,48 @@ func (r *Resolvers) MutationResolvers() map[string]rocket.FieldResolveFn {
 }
 
 func (r *Resolvers) TypeResolvers() map[string]map[string]rocket.FieldResolveFn {
-    return map[string]map[string]rocket.FieldResolveFn{}
+    // For list types, you may need explicit type resolvers
+    // Auto-resolution works best for single objects, not slices
+    return map[string]map[string]rocket.FieldResolveFn{
+        "User": {
+            "id": func(p rocket.ResolveParams) (interface{}, error) {
+                switch v := p.Source.(type) {
+                case *User:
+                    return v.ID, nil
+                case User:
+                    return v.ID, nil
+                default:
+                    return nil, nil
+                }
+            },
+            "name": func(p rocket.ResolveParams) (interface{}, error) {
+                switch v := p.Source.(type) {
+                case *User:
+                    return v.Name, nil
+                case User:
+                    return v.Name, nil
+                default:
+                    return nil, nil
+                }
+            },
+            "email": func(p rocket.ResolveParams) (interface{}, error) {
+                switch v := p.Source.(type) {
+                case *User:
+                    return v.Email, nil
+                case User:
+                    return v.Email, nil
+                default:
+                    return nil, nil
+                }
+            },
+        },
+    }
 }
 ```
 
 > **Note**: Rocket's auto-field resolution works with **structs**, not maps. Use structs with `json` tags to match your GraphQL schema field names.
+> 
+> **Important**: When returning slices/lists, you may need to add explicit type resolvers for the fields. This is a known limitation being investigated. See the working example below with explicit resolvers.
 
 #### Step 4: Build and Run
 
