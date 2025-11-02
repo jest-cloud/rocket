@@ -22,12 +22,12 @@ http.HandleFunc("/graphql", rocket.PlaygroundHandler("/graphql"))
 - 🔐 Header management for authentication
 - 📊 Response time metrics
 - 🎯 Real-time query linting and validation
-- ☁️ Cloud sync (optional)
+- ☁️ Cloud sync (optional - requires Apollo account)
 - 🎨 Dark/light theme support
 
-### Why Modern Sandbox?
+### Why Apollo Sandbox?
 
-- **Most stable** - Actively maintained
+- **Most stable** - Actively maintained by Apollo
 - **Best autocomplete** - Rarely gets stuck
 - **Modern UX** - Clean, intuitive interface
 - **Production-ready** - Used by thousands of companies

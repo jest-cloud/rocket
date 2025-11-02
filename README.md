@@ -190,6 +190,13 @@ Rocket fully supports GraphQL introspection queries out of the box:
 
 The GraphQL Playground automatically uses introspection to provide autocomplete and documentation.
 
+## Documentation
+
+- **[Usage Guide](dev/docs/USAGE.md)** - Comprehensive guide on using Rocket
+- **[Playgrounds](dev/docs/PLAYGROUNDS.md)** - GraphQL playground options and configuration
+- **[CHANGELOG](dev/docs/CHANGELOG.md)** - Release history and changes
+- **[ROCKET_LAUNCH](dev/docs/ROCKET_LAUNCH.md)** - Project launch documentation
+
 ## Coming Soon
 
 - [ ] Subscriptions support
