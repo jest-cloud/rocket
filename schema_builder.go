@@ -1,6 +1,8 @@
 package rocket
 
 import (
+	"fmt"
+	"os"
 	"github.com/graphql-go/graphql"
 	"github.com/vektah/gqlparser/v2/ast"
 )
@@ -165,12 +167,16 @@ func (b *schemaBuilder) getResolver(typeName, fieldName string) graphql.FieldRes
 	}
 
 	// Use default field resolver
+	// Debug: Log when resolver is created
+	fmt.Printf("[DEBUG] getResolver: typeName=%s, fieldName=%s, using DefaultFieldResolver\n", typeName, fieldName)
 	return b.wrapResolver(DefaultFieldResolver)
 }
 
 // wrapResolver wraps a Rocket FieldResolveFn into a graphql.FieldResolveFn
 func (b *schemaBuilder) wrapResolver(fn FieldResolveFn) graphql.FieldResolveFn {
 	return func(p graphql.ResolveParams) (interface{}, error) {
+		fmt.Fprintf(os.Stderr, "[DEBUG] wrapResolver called: ParentType=%s, FieldName=%s, Source type=%T\n", 
+			p.Info.ParentType.Name(), p.Info.FieldName, p.Source)
 		rocketParams := ResolveParams{
 			Source:  p.Source,
 			Args:    p.Args,
@@ -181,7 +187,9 @@ func (b *schemaBuilder) wrapResolver(fn FieldResolveFn) graphql.FieldResolveFn {
 				ReturnType: p.Info.ReturnType.String(),
 			},
 		}
-		return fn(rocketParams)
+		result, err := fn(rocketParams)
+		fmt.Fprintf(os.Stderr, "[DEBUG] wrapResolver returning: result=%v, err=%v\n", result, err)
+		return result, err
 	}
 }
 

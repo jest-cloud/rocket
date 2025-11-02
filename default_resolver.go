@@ -1,6 +1,8 @@
 package rocket
 
 import (
+	"fmt"
+	"os"
 	"reflect"
 	"strings"
 	"time"
@@ -15,6 +17,9 @@ func DefaultFieldResolver(p ResolveParams) (interface{}, error) {
 	}
 
 	fieldName := p.Info.FieldName
+	
+	// Debug: Log Source type for investigation (force flush to stderr)
+	fmt.Fprintf(os.Stderr, "[DEBUG] DefaultFieldResolver: fieldName=%s, ParentType=%s, Source type=%T\n", fieldName, p.Info.ParentType, p.Source)
 
 	// Handle map[string]interface{} (e.g., from JSON unmarshaling or graphql-go conversions)
 	if m, ok := p.Source.(map[string]interface{}); ok {
