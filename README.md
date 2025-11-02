@@ -24,6 +24,165 @@ Rocket aims to bring a more developer-friendly approach to GraphQL in Go:
 - 🏗️ **Built on Wundergraph** - Production-grade GraphQL tools
 - 🎮 **Apollo Sandbox** - Modern playground with best-in-class DX
 
+## Getting Started
+
+### Prerequisites
+
+- **Go 1.25+** - Make sure you have Go installed ([download here](https://go.dev/dl/))
+- Basic understanding of GraphQL (helpful but not required)
+
+### Installation
+
+Add Rocket to your Go project:
+
+```bash
+go get github.com/jest-cloud/rocket@latest
+```
+
+Or specify a version:
+
+```bash
+go get github.com/jest-cloud/rocket@v0.1.0
+```
+
+### Create a Simple GraphQL API
+
+Follow these steps to create your first Rocket-powered GraphQL API:
+
+#### Step 1: Create Your Project
+
+```bash
+mkdir my-graphql-api
+cd my-graphql-api
+go mod init my-graphql-api
+go get github.com/jest-cloud/rocket
+```
+
+#### Step 2: Define Your Schema
+
+Create a `schema.graphql` file:
+
+```graphql
+type Query {
+  hello: String!
+  users: [User!]!
+}
+
+type User {
+  id: ID!
+  name: String!
+  email: String!
+}
+```
+
+#### Step 3: Create Your Resolvers
+
+Create `resolvers.go`:
+
+```go
+package main
+
+import (
+    "context"
+    "github.com/jest-cloud/rocket"
+)
+
+type Resolvers struct{}
+
+func (r *Resolvers) QueryResolvers() map[string]rocket.FieldResolveFn {
+    return map[string]rocket.FieldResolveFn{
+        "hello": func(p rocket.ResolveParams) (interface{}, error) {
+            return "Hello, Rocket! 🚀", nil
+        },
+        "users": func(p rocket.ResolveParams) (interface{}, error) {
+            return []map[string]interface{}{
+                {"id": "1", "name": "Alice", "email": "alice@example.com"},
+                {"id": "2", "name": "Bob", "email": "bob@example.com"},
+            }, nil
+        },
+    }
+}
+
+func (r *Resolvers) MutationResolvers() map[string]rocket.FieldResolveFn {
+    return map[string]rocket.FieldResolveFn{}
+}
+
+func (r *Resolvers) TypeResolvers() map[string]map[string]rocket.FieldResolveFn {
+    return map[string]map[string]rocket.FieldResolveFn{}
+}
+```
+
+#### Step 4: Build and Run
+
+Create `main.go`:
+
+```go
+package main
+
+import (
+    "log"
+    "net/http"
+    "github.com/jest-cloud/rocket"
+)
+
+func main() {
+    resolvers := &Resolvers{}
+    
+    // Build GraphQL schema
+    schema, err := rocket.BuildSchema(
+        rocket.Config{
+            SchemaPath: "schema.graphql",
+        },
+        resolvers,
+    )
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    // Create HTTP handlers
+    http.Handle("/graphql", rocket.Handler(schema))
+    http.HandleFunc("/playground", rocket.PlaygroundHandler("/graphql"))
+    
+    log.Println("🚀 Server starting on http://localhost:8080")
+    log.Println("🚀 GraphQL endpoint: http://localhost:8080/graphql")
+    log.Println("🚀 Playground: http://localhost:8080/playground")
+    
+    log.Fatal(http.ListenAndServe(":8080", nil))
+}
+```
+
+#### Step 5: Test Your API
+
+Run your server:
+
+```bash
+go run main.go
+```
+
+Then:
+
+1. **Visit the Playground**: Open http://localhost:8080/playground in your browser
+2. **Try a Query**: 
+   ```graphql
+   query {
+     hello
+     users {
+       id
+       name
+       email
+     }
+   }
+   ```
+
+That's it! You now have a working GraphQL API powered by Rocket. 🎉
+
+### Next Steps
+
+- 📖 Read the [Usage Guide](dev/docs/USAGE.md) for detailed examples
+- 🎮 Learn about [Playground Options](dev/docs/PLAYGROUNDS.md)
+- 🏗️ Explore [Module Architecture](#architecture) patterns
+- 🔧 Check out the [TODO](#todo) list for upcoming features
+
 ## Quick Start
 
 ### 1. Define Your Schema
