@@ -6,6 +6,7 @@ import (
 
 	"github.com/jensneuse/abstractlogger"
 	"github.com/wundergraph/graphql-go-tools/v2/pkg/astparser"
+	"github.com/wundergraph/graphql-go-tools/v2/pkg/asttransform"
 	"github.com/wundergraph/graphql-go-tools/v2/pkg/engine/plan"
 	"github.com/wundergraph/graphql-go-tools/v2/pkg/operationreport"
 )
@@ -65,6 +66,12 @@ query {
 	schemaDoc, report := astparser.ParseGraphqlDocumentString(schema)
 	if report.HasErrors() {
 		t.Fatalf("Failed to parse schema: %v", report.Error())
+	}
+	
+	// Merge with base schema (required by planner)
+	err := asttransform.MergeDefinitionWithBaseSchema(&schemaDoc)
+	if err != nil {
+		t.Fatalf("Failed to merge base schema: %v", err)
 	}
 
 	// Parse query
