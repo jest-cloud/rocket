@@ -22,7 +22,7 @@ Rocket aims to bring a more developer-friendly approach to GraphQL in Go:
 - ⚡ **Hot reload support** - Auto-recompile schemas on change
 - 🎨 **Field order preservation** - Responses match query field order
 - 🏗️ **Built on Wundergraph** - Production-grade GraphQL tools
-- 🎮 **Modern Playground** - Built-in GraphQL playground with best-in-class DX
+- 🎮 **Apollo Sandbox** - Modern playground with best-in-class DX
 
 ## Quick Start
 
