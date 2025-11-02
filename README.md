@@ -83,11 +83,17 @@ Create `resolvers.go`:
 package main
 
 import (
-    "context"
     "github.com/jest-cloud/rocket"
 )
 
 type Resolvers struct{}
+
+// User represents a user in our system
+type User struct {
+    ID    string `json:"id"`
+    Name  string `json:"name"`
+    Email string `json:"email"`
+}
 
 func (r *Resolvers) QueryResolvers() map[string]rocket.FieldResolveFn {
     return map[string]rocket.FieldResolveFn{
@@ -95,9 +101,10 @@ func (r *Resolvers) QueryResolvers() map[string]rocket.FieldResolveFn {
             return "Hello, Rocket! 🚀", nil
         },
         "users": func(p rocket.ResolveParams) (interface{}, error) {
-            return []map[string]interface{}{
-                {"id": "1", "name": "Alice", "email": "alice@example.com"},
-                {"id": "2", "name": "Bob", "email": "bob@example.com"},
+            // Return structs - Rocket will auto-resolve fields!
+            return []*User{
+                {ID: "1", Name: "Alice", Email: "alice@example.com"},
+                {ID: "2", Name: "Bob", Email: "bob@example.com"},
             }, nil
         },
     }
@@ -111,6 +118,8 @@ func (r *Resolvers) TypeResolvers() map[string]map[string]rocket.FieldResolveFn 
     return map[string]map[string]rocket.FieldResolveFn{}
 }
 ```
+
+> **Note**: Rocket's auto-field resolution works with **structs**, not maps. Use structs with `json` tags to match your GraphQL schema field names.
 
 #### Step 4: Build and Run
 
