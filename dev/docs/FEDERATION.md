@@ -4,14 +4,16 @@
 
 Rocket is built on **WunderGraph's `graphql-go-tools`**, which means it's designed from the ground up to support **GraphQL Federation**. This allows you to compose multiple Rocket services (subgraphs) into a single federated supergraph.
 
-## Status: FEDERATION-READY ✅
+## Status: FULLY SUPPORTED ✅
 
-Rocket is federation-ready since v0.1.0:
+Rocket has full GraphQL Federation support since v0.5.0:
+- ✅ Federation directives (@key, @extends, @external, @requires, @provides)
+- ✅ Entity resolvers (EntityResolveFn)
+- ✅ _service query (returns SDL)
+- ✅ _entities query (resolves entities)
 - ✅ Built on `graphql-go-tools` DataSource pattern
-- ✅ Can run as standalone GraphQL server
-- ✅ Can be composed into federated supergraph
 - ✅ Compatible with Apollo Federation
-- ✅ Compatible with WunderGraph Cosmo
+- ✅ Compatible with WunderGraph Cosmo Router
 
 ## What is GraphQL Federation?
 
@@ -41,17 +43,19 @@ GraphQL Federation allows you to:
 
 ## Current Capabilities
 
-### ✅ Standalone Mode (Current)
-Rocket currently works as a **standalone GraphQL server**:
+### ✅ Standalone Mode
+Rocket works as a **standalone GraphQL server**:
 - Full GraphQL API in one service
 - All types and resolvers in one place
 - Perfect for monolithic or small APIs
 
-### 🔄 Federation Mode (Ready, Not Yet Documented)
-Rocket is **federation-ready** but federation features are not yet exposed:
-- Built on DataSource pattern (core of federation)
-- Can be composed with other subgraphs
-- Needs federation directives and entity resolvers
+### ✅ Federation Mode (v0.5.0+)
+Rocket now has **full federation support**:
+- Federation directives available in schema
+- Entity resolvers via `EntityResolvers()` method
+- Automatic `_service` and `_entities` queries
+- Compatible with Apollo Gateway and Cosmo Router
+- Production-ready for microservices architecture
 
 ## How Federation Works
 
@@ -94,6 +98,119 @@ type Post @key(fields: "id") {
 ```
 
 Each service only knows about its domain, but the gateway combines them into one unified API.
+
+## Using Federation with Rocket
+
+### Quick Start
+
+**1. Enable Federation in Config:**
+
+```go
+schema, err := rocket.BuildSchema(
+    rocket.Config{
+        SchemaPath: "schema.graphql",
+        Federation: rocket.FederationConfig{
+            Enabled:     true,
+            ServiceName: "users", // Optional
+        },
+    },
+    resolvers,
+)
+```
+
+**2. Define Entities in Schema:**
+
+```graphql
+# Mark types as entities with @key
+type User @key(fields: "id") {
+  id: ID!
+  name: String!
+  email: String!
+}
+
+type Post @key(fields: "id") {
+  id: ID!
+  title: String!
+  authorId: ID!
+}
+```
+
+**3. Implement Entity Resolvers:**
+
+```go
+func (r *Resolvers) EntityResolvers() map[string]rocket.EntityResolveFn {
+    return map[string]rocket.EntityResolveFn{
+        "User": func(p rocket.ResolveParams, representation map[string]interface{}) (interface{}, error) {
+            id := representation["id"].(string)
+            return r.userService.GetUser(p.Context, id)
+        },
+        "Post": func(p rocket.ResolveParams, representation map[string]interface{}) (interface{}, error) {
+            id := representation["id"].(string)
+            return r.postService.GetPost(p.Context, id)
+        },
+    }
+}
+```
+
+**That's it!** Your service is now a federation subgraph.
+
+### Complete Resolver Example
+
+```go
+package main
+
+import (
+    "context"
+    "github.com/jest-cloud/rocket"
+)
+
+type Resolvers struct {
+    userService *UserService
+}
+
+// Query resolvers
+func (r *Resolvers) QueryResolvers() map[string]rocket.FieldResolveFn {
+    return map[string]rocket.FieldResolveFn{
+        "user": func(p rocket.ResolveParams) (interface{}, error) {
+            id := p.Args["id"].(string)
+            return r.userService.GetUser(p.Context, id)
+        },
+    }
+}
+
+// Mutation resolvers
+func (r *Resolvers) MutationResolvers() map[string]rocket.FieldResolveFn {
+    return map[string]rocket.FieldResolveFn{}
+}
+
+// Subscription resolvers
+func (r *Resolvers) SubscriptionResolvers() map[string]rocket.SubscriptionResolveFn {
+    return map[string]rocket.SubscriptionResolveFn{}
+}
+
+// Type resolvers
+func (r *Resolvers) TypeResolvers() map[string]map[string]rocket.FieldResolveFn {
+    return map[string]map[string]rocket.FieldResolveFn{}
+}
+
+// Entity resolvers for federation
+func (r *Resolvers) EntityResolvers() map[string]rocket.EntityResolveFn {
+    return map[string]rocket.EntityResolveFn{
+        "User": func(p rocket.ResolveParams, representation map[string]interface{}) (interface{}, error) {
+            // Extract the key field(s) from representation
+            id := representation["id"].(string)
+            
+            // Fetch the entity
+            user, err := r.userService.GetUser(p.Context, id)
+            if err != nil {
+                return nil, err
+            }
+            
+            return user, nil
+        },
+    }
+}
+```
 
 ## Why Rocket is Federation-Ready
 
