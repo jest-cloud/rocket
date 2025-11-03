@@ -21,8 +21,10 @@ Rocket aims to bring a more developer-friendly approach to GraphQL in Go:
 - 🔄 **Schema compilation** - Concat `.graphql` files with smart ordering
 - ⚡ **Hot reload support** - Auto-recompile schemas on change
 - 🎨 **Field order preservation** - Responses match query field order
-- 🏗️ **Built on Wundergraph** - Production-grade GraphQL tools
+- 🏗️ **Built on WunderGraph** - Production-grade `graphql-go-tools` for federation
 - 🎮 **Apollo Sandbox** - Modern playground with best-in-class DX
+- 🔄 **GraphQL Subscriptions** - Real-time updates via WebSocket with `graphql-ws` protocol
+- 🌐 **Federation-ready** - Built on DataSource pattern for federated supergraphs
 
 ## Getting Started
 
@@ -42,7 +44,7 @@ go get github.com/jest-cloud/rocket@latest
 Or specify a version:
 
 ```bash
-go get github.com/jest-cloud/rocket@v0.1.0
+go get github.com/jest-cloud/rocket@v0.3.0
 ```
 
 ### Create a Simple GraphQL API
@@ -112,6 +114,10 @@ func (r *Resolvers) QueryResolvers() map[string]rocket.FieldResolveFn {
 
 func (r *Resolvers) MutationResolvers() map[string]rocket.FieldResolveFn {
     return map[string]rocket.FieldResolveFn{}
+}
+
+func (r *Resolvers) SubscriptionResolvers() map[string]rocket.SubscriptionResolveFn {
+    return map[string]rocket.SubscriptionResolveFn{}
 }
 
 func (r *Resolvers) TypeResolvers() map[string]map[string]rocket.FieldResolveFn {
@@ -233,17 +239,9 @@ That's it! You now have a working GraphQL API powered by Rocket. 🎉
 
 - **[Usage Guide](dev/docs/USAGE.md)** - Comprehensive guide on using Rocket
 - **[Playgrounds](dev/docs/PLAYGROUNDS.md)** - GraphQL playground options and configuration
+- **[Subscriptions](dev/docs/SUBSCRIPTIONS_STATUS.md)** - Real-time subscriptions with WebSockets
 - **[CHANGELOG](dev/docs/CHANGELOG.md)** - Release history and changes
-- **[ROCKET_LAUNCH](dev/docs/ROCKET_LAUNCH.md)** - Project launch documentation
-- **[Architecture Decision](dev/docs/ARCHITECTURE_DECISION.md)** - Architecture decisions and rationale
-- **[Recommendations](dev/docs/RECOMMENDATIONS.md)** - Design recommendations and patterns
-- **[Migration Notes](dev/docs/MIGRATION_NOTES.md)** - Migration from other GraphQL libraries
-- **[Migration Plan](dev/docs/MIGRATION_PLAN.md)** - Detailed migration plan
-- **[Migration Decision](dev/docs/MIGRATION_DECISION.md)** - Migration decision documentation
-- **[Research Notes](dev/docs/RESEARCH_NOTES.md)** - Research and investigation notes
-- **[Research Summary](dev/docs/RESEARCH_SUMMARY.md)** - Summary of research findings
-- **[Bug Report Summary](dev/docs/BUG_REPORT_SUMMARY.md)** - Known bugs and issues
-- **[Issue Template](dev/docs/ISSUE_TEMPLATE.md)** - Template for reporting issues
+- **[Examples](examples/)** - Working examples including subscriptions
 
 ## Quick Start
 
@@ -291,6 +289,10 @@ func (r *Resolvers) QueryResolvers() map[string]rocket.FieldResolveFn {
 
 func (r *Resolvers) MutationResolvers() map[string]rocket.FieldResolveFn {
     return map[string]rocket.FieldResolveFn{}
+}
+
+func (r *Resolvers) SubscriptionResolvers() map[string]rocket.SubscriptionResolveFn {
+    return map[string]rocket.SubscriptionResolveFn{}
 }
 
 func (r *Resolvers) TypeResolvers() map[string]map[string]rocket.FieldResolveFn {
@@ -401,22 +403,24 @@ Rocket Package
 - 🔧 **Flexible** - Override anything when you need to
 - 📦 **Modular** - Clean separation of concerns
 
-## Introspection Support
+## What's Supported
 
-Rocket fully supports GraphQL introspection queries out of the box:
+### ✅ All 3 GraphQL Operation Types
 
+| Operation | Status | Transport |
+|-----------|--------|-----------|
+| **Query** | ✅ Complete | HTTP POST |
+| **Mutation** | ✅ Complete | HTTP POST |
+| **Subscription** | ✅ Complete | WebSocket (`graphql-ws`) |
+
+### ✅ Introspection
+
+Rocket fully supports GraphQL introspection queries:
 - `__schema` - Get the schema structure
 - `__type` - Get information about a specific type  
 - `__typename` - Get the type name of an object
 
-The GraphQL Playground automatically uses introspection to provide autocomplete and documentation.
-
-## Documentation
-
-- **[Usage Guide](dev/docs/USAGE.md)** - Comprehensive guide on using Rocket
-- **[Playgrounds](dev/docs/PLAYGROUNDS.md)** - GraphQL playground options and configuration
-- **[CHANGELOG](dev/docs/CHANGELOG.md)** - Release history and changes
-- **[ROCKET_LAUNCH](dev/docs/ROCKET_LAUNCH.md)** - Project launch documentation
+The GraphQL Playground automatically uses introspection for autocomplete and documentation.
 
 ## TODO
 
@@ -436,7 +440,7 @@ The GraphQL Playground automatically uses introspection to provide autocomplete 
 - [ ] Add panic recovery middleware for resolvers
 
 ### Features & Functionality
-- [ ] Subscriptions support (WebSocket)
+- [x] Subscriptions support (WebSocket) - ✅ **Added in v0.3.0**
 - [ ] DataLoader implementation for N+1 query prevention
 - [ ] Custom scalar types (Date, DateTime, JSON, etc.)
 - [ ] Field-level middleware/directives
@@ -483,7 +487,7 @@ The GraphQL Playground automatically uses introspection to provide autocomplete 
 
 These are planned for future releases:
 
-- [ ] Subscriptions support
+- [x] ~~Subscriptions support~~ - ✅ **Added in v0.3.0**
 - [ ] DataLoader for N+1 prevention
 - [ ] Custom scalar types
 - [ ] Field-level middleware/directives
