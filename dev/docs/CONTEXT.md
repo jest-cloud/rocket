@@ -4,11 +4,66 @@
 
 Context in Rocket works similar to **Apollo GraphQL's context pattern**. It allows you to pass request-specific data (like authenticated users, database connections, etc.) to all your resolvers.
 
+## Quick Example
+
+**1. Add data to context (via middleware or context builder):**
+
+```go
+// Middleware adds userID to context
+func AuthMiddleware(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        userID := verifyJWT(r.Header.Get("Authorization"))
+        ctx := context.WithValue(r.Context(), "userID", userID)
+        next.ServeHTTP(w, r.WithContext(ctx))
+    })
+}
+```
+
+**2. Access data in resolvers via `p.Context`:**
+
+```go
+"currentUser": func(p rocket.ResolveParams) (interface{}, error) {
+    // ⭐ Access context value from p.Context
+    userID := p.Context.Value("userID").(string)
+    return getUserByID(userID)
+}
+```
+
+**That's it!** Data flows: `Request → Middleware → Context → Resolvers`
+
+## Accessing Context in Resolvers
+
+Every resolver receives a `ResolveParams` object with a `Context` field:
+
+```go
+type ResolveParams struct {
+    Source  interface{}              // Parent object
+    Args    map[string]interface{}   // Field arguments
+    Context context.Context          // ⭐ Request context is here
+    Info    ResolveInfo              // Field metadata
+}
+```
+
+**Access context values using `p.Context.Value(key)`:**
+
+```go
+"currentUser": func(p rocket.ResolveParams) (interface{}, error) {
+    // Access context value
+    userID, ok := p.Context.Value("userID").(string)
+    if !ok {
+        return nil, fmt.Errorf("unauthorized")
+    }
+    
+    // Use the value
+    return getUserByID(userID)
+}
+```
+
 ## How It Works
 
 ### Current Implementation
 
-Rocket currently passes the HTTP request context directly to resolvers:
+Rocket passes the HTTP request context directly to all resolvers:
 
 ```go
 // In handler

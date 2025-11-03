@@ -57,6 +57,22 @@ type ResolveInfo struct {
 }
 ```
 
+### Accessing Context in Resolvers
+
+The `Context` field in `ResolveParams` contains request-scoped data like authenticated users:
+
+```go
+"currentUser": func(p rocket.ResolveParams) (interface{}, error) {
+    // Access context value
+    userID := p.Context.Value("userID").(string)
+    
+    // Use it
+    return r.userService.GetUser(p.Context, userID)
+}
+```
+
+See the **[Context Guide](./CONTEXT.md)** for complete authentication patterns.
+
 ## Basic Resolver Structure
 
 ### Minimal Example
