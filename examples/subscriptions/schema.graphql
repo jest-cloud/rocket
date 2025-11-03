@@ -1,0 +1,46 @@
+type Query {
+  hello: String!
+  messages: [Message!]!
+}
+
+type Mutation {
+  sendMessage(text: String!, userId: String!): Message!
+}
+
+type Subscription {
+  """
+  Subscribe to new messages in the chat
+  """
+  messageAdded: Message!
+  
+  """
+  Countdown from a given number (demo subscription)
+  """
+  countdown(from: Int!): Int!
+  
+  """
+  Subscribe to user status changes
+  """
+  userStatus(userId: String!): UserStatus!
+}
+
+type Message {
+  id: ID!
+  text: String!
+  userId: String!
+  timestamp: String!
+  user: User!
+}
+
+type User {
+  id: ID!
+  name: String!
+  email: String!
+}
+
+type UserStatus {
+  userId: String!
+  status: String!
+  timestamp: String!
+}
+

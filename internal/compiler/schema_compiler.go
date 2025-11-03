@@ -1,4 +1,4 @@
-package rocket
+package compiler
 
 import (
 	"fmt"

@@ -4,12 +4,19 @@ import (
 	httphandler "net/http"
 
 	rockethttp "github.com/jest-cloud/rocket/internal/http"
+	rocketws "github.com/jest-cloud/rocket/internal/websocket"
 )
 
 // Handler creates an HTTP handler for GraphQL requests
 // Works with both net/http and Gin (via gin.WrapH)
 func Handler(schema *Schema) httphandler.HandlerFunc {
 	return rockethttp.Handler(schema)
+}
+
+// WebSocketHandler creates a WebSocket handler for GraphQL subscriptions
+// This implements the graphql-ws protocol for real-time subscriptions
+func WebSocketHandler(schema *Schema) httphandler.HandlerFunc {
+	return rocketws.Handler(schema)
 }
 
 // PlaygroundHandler creates an HTTP handler that serves a GraphQL playground

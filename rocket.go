@@ -3,6 +3,7 @@
 package rocket
 
 import (
+	"github.com/jest-cloud/rocket/internal/compiler"
 	"github.com/jest-cloud/rocket/internal/registry"
 	"github.com/jest-cloud/rocket/internal/types"
 )
@@ -18,6 +19,11 @@ type ResolveInfo = types.ResolveInfo
 // FieldResolveFn is a function that resolves a field value
 // Re-exported from internal/types for public API
 type FieldResolveFn = types.FieldResolveFn
+
+// SubscriptionResolveFn is a function that resolves a subscription field
+// It returns a channel that emits values over time
+// Re-exported from internal/types for public API
+type SubscriptionResolveFn = types.SubscriptionResolveFn
 
 // ModuleResolvers is the interface that all module resolvers must implement
 // Re-exported from internal/types for public API
@@ -41,4 +47,12 @@ type ResolverRegistry = registry.ResolverRegistry
 // NewResolverRegistry creates a new registry by merging module resolvers
 // Re-exported from internal/registry for public API
 var NewResolverRegistry = registry.NewResolverRegistry
+
+// SchemaCompiler compiles multiple .graphql files into a single schema
+// Re-exported from internal/compiler for public API
+type SchemaCompiler = compiler.SchemaCompiler
+
+// NewSchemaCompiler creates a new schema compiler
+// Re-exported from internal/compiler for public API
+var NewSchemaCompiler = compiler.NewSchemaCompiler
 

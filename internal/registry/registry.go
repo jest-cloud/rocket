@@ -7,9 +7,10 @@ import (
 // ResolverRegistry holds all resolvers stitched together
 // Combines resolvers from different modules in a clean, modular way
 type ResolverRegistry struct {
-	Query    map[string]types.FieldResolveFn
-	Mutation map[string]types.FieldResolveFn
-	Types    map[string]map[string]types.FieldResolveFn
+	Query        map[string]types.FieldResolveFn
+	Mutation     map[string]types.FieldResolveFn
+	Subscription map[string]types.SubscriptionResolveFn
+	Types        map[string]map[string]types.FieldResolveFn
 }
 
 // NewResolverRegistry creates a new registry by merging module resolvers
@@ -20,9 +21,10 @@ type ResolverRegistry struct {
 //   }
 func NewResolverRegistry(modules ...types.ModuleResolvers) *ResolverRegistry {
 	registry := &ResolverRegistry{
-		Query:    make(map[string]types.FieldResolveFn),
-		Mutation: make(map[string]types.FieldResolveFn),
-		Types:    make(map[string]map[string]types.FieldResolveFn),
+		Query:        make(map[string]types.FieldResolveFn),
+		Mutation:     make(map[string]types.FieldResolveFn),
+		Subscription: make(map[string]types.SubscriptionResolveFn),
+		Types:        make(map[string]map[string]types.FieldResolveFn),
 	}
 
 	// Merge all module resolvers
@@ -35,6 +37,11 @@ func NewResolverRegistry(modules ...types.ModuleResolvers) *ResolverRegistry {
 		// Spread mutation resolvers
 		for key, resolver := range module.MutationResolvers() {
 			registry.Mutation[key] = resolver
+		}
+
+		// Spread subscription resolvers
+		for key, resolver := range module.SubscriptionResolvers() {
+			registry.Subscription[key] = resolver
 		}
 
 		// Spread type resolvers
@@ -55,6 +62,12 @@ func (r *ResolverRegistry) GetQueryResolver(name string) (types.FieldResolveFn, 
 // GetMutationResolver returns a mutation resolver by name
 func (r *ResolverRegistry) GetMutationResolver(name string) (types.FieldResolveFn, bool) {
 	resolver, ok := r.Mutation[name]
+	return resolver, ok
+}
+
+// GetSubscriptionResolver returns a subscription resolver by name
+func (r *ResolverRegistry) GetSubscriptionResolver(name string) (types.SubscriptionResolveFn, bool) {
+	resolver, ok := r.Subscription[name]
 	return resolver, ok
 }
 
