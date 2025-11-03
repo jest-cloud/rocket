@@ -160,7 +160,11 @@ func extractSelectionSetForField(queryDoc *ast.Document, fieldName string) []str
 							if sel.Kind == ast.SelectionKindField {
 								fRef := sel.Ref
 								if fRef >= 0 && fRef < len(queryDoc.Fields) {
-									fields = append(fields, queryDoc.FieldNameString(fRef))
+									nestedFieldName := queryDoc.FieldNameString(fRef)
+									// Skip if nested field has same name as parent (parser quirk for scalars with args)
+									if nestedFieldName != fieldName {
+										fields = append(fields, nestedFieldName)
+									}
 								}
 							}
 						}
@@ -315,6 +319,16 @@ func (s *Schema) Execute(ctx context.Context, query string, variables map[string
 	// before the operation is available to visitor.Operation
 	requestedFields, operationType := extractFieldsAndType(&queryDoc)
 	
+	// SPECIAL HANDLING FOR SUBSCRIPTIONS:
+	// Subscriptions require WebSocket transport and cannot be executed via HTTP
+	if operationType == ast.OperationTypeSubscription {
+		return &Result{
+			Errors: []Error{{
+				Message: "Subscriptions must be executed over WebSocket using the /graphql/ws endpoint",
+			}},
+		}
+	}
+	
 	// SPECIAL HANDLING FOR MUTATIONS:
 	// Mutations with variables don't work well with our DataSource approach because
 	// the Input template doesn't evaluate properly. So we execute mutations directly.
@@ -353,6 +367,90 @@ func (s *Schema) Execute(ctx context.Context, query string, variables map[string
 		Data:   result.Data,
 		Errors: convertErrors(result.Errors),
 	}
+}
+
+// ExecuteSubscription executes a GraphQL subscription and returns a channel of results
+// This method is called by the WebSocket handler
+func (s *Schema) ExecuteSubscription(ctx context.Context, query string, variables map[string]interface{}, operationName string) (<-chan interface{}, error) {
+	// Parse query
+	queryDoc, report := astparser.ParseGraphqlDocumentString(query)
+	if report.HasErrors() {
+		return nil, fmt.Errorf("parse error: %s", report.Error())
+	}
+
+	// Extract requested fields and operation type
+	requestedFields, operationType := extractFieldsAndType(&queryDoc)
+
+	// Validate this is a subscription
+	if operationType != ast.OperationTypeSubscription {
+		return nil, fmt.Errorf("expected subscription operation, got %v", operationType)
+	}
+
+	if len(requestedFields) == 0 {
+		return nil, fmt.Errorf("no subscription fields found")
+	}
+
+	// For now, handle single subscription field (most common case)
+	subscriptionField := requestedFields[0]
+
+	// Get the subscription resolver
+	resolver, found := s.resolvers.GetSubscriptionResolver(subscriptionField)
+	if !found {
+		return nil, fmt.Errorf("no resolver found for subscription: %s", subscriptionField)
+	}
+
+	// Extract selection set for this subscription field
+	selectionSet := extractSelectionSetForField(&queryDoc, subscriptionField)
+
+	// Call the resolver to get the source channel
+	params := ResolveParams{
+		Source:  nil,
+		Args:    variables,
+		Context: ctx,
+		Info: ResolveInfo{
+			FieldName:    subscriptionField,
+			SelectionSet: selectionSet,
+		},
+	}
+
+	sourceChan, err := resolver(params)
+	if err != nil {
+		return nil, fmt.Errorf("subscription resolver error: %w", err)
+	}
+
+	// Create result channel
+	resultChan := make(chan interface{})
+
+	// Transform source channel to result channel with nested field resolution
+	go func() {
+		defer close(resultChan)
+
+		for value := range sourceChan {
+			// For scalar types (empty selection set), return the value directly
+			// For object types, resolve nested fields
+			var resolved interface{}
+			if len(selectionSet) == 0 {
+				resolved = value
+			} else {
+				resolved = s.resolveNestedFields(ctx, value, selectionSet)
+			}
+
+			// Wrap in subscription field name
+			result := map[string]interface{}{
+				subscriptionField: resolved,
+			}
+
+			// Check if context is cancelled
+			select {
+			case <-ctx.Done():
+				return
+			case resultChan <- result:
+				// Continue
+			}
+		}
+	}()
+
+	return resultChan, nil
 }
 
 // Result represents the result of a GraphQL operation
