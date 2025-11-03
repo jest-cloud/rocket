@@ -31,6 +31,10 @@ func (r *testResolverWithMutations) SubscriptionResolvers() map[string]rocket.Su
 	return map[string]rocket.SubscriptionResolveFn{}
 }
 
+func (r *testResolverWithMutations) EntityResolvers() map[string]rocket.EntityResolveFn {
+	return map[string]rocket.EntityResolveFn{}
+}
+
 func (r *testResolverWithMutations) TypeResolvers() map[string]map[string]rocket.FieldResolveFn {
 	return map[string]map[string]rocket.FieldResolveFn{}
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/jensneuse/abstractlogger"
 	"github.com/jest-cloud/rocket/internal/datasource"
 	"github.com/jest-cloud/rocket/internal/execution"
+	"github.com/jest-cloud/rocket/internal/federation"
 	"github.com/jest-cloud/rocket/internal/registry"
 	"github.com/jest-cloud/rocket/internal/resolver"
 	"github.com/jest-cloud/rocket/internal/types"
@@ -29,6 +30,15 @@ func BuildSchema(config Config, modules ...ModuleResolvers) (*Schema, error) {
 	schemaBytes, err := os.ReadFile(config.SchemaPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read schema file: %w", err)
+	}
+
+	// Store original SDL for _service query
+	originalSDL := string(schemaBytes)
+
+	// If federation is enabled, inject federation directives and types
+	if config.Federation.Enabled {
+		federationSchema := federation.GetFederationSchema()
+		schemaBytes = []byte(federationSchema + "\n" + string(schemaBytes))
 	}
 
 	// Parse schema using graphql-go-tools astparser
@@ -53,9 +63,25 @@ func BuildSchema(config Config, modules ...ModuleResolvers) (*Schema, error) {
 		return nil, fmt.Errorf("failed to normalize schema: %v", report.Error())
 	}
 
-
 	// Create resolver registry from modules
 	resolvers := registry.NewResolverRegistry(modules...)
+
+	// If federation is enabled, auto-register federation queries
+	if config.Federation.Enabled {
+		// Collect entity resolvers from all modules
+		entityResolvers := make(map[string]types.EntityResolveFn)
+		for _, module := range modules {
+			for typename, resolver := range module.EntityResolvers() {
+				entityResolvers[typename] = resolver
+			}
+		}
+
+		// Auto-register _entities query
+		resolvers.Query["_entities"] = federation.EntitiesResolver(entityResolvers)
+
+		// Auto-register _service query with original SDL (without injected federation schema)
+		resolvers.Query["_service"] = federation.ServiceResolver(originalSDL)
+	}
 
 	// Note: We don't pre-build the planner here anymore.
 	// Instead, we'll create a fresh planner for each query execution.
@@ -597,7 +623,9 @@ func (s *Schema) handleIntrospectionDirectly(ctx context.Context, query string, 
 // isIntrospectionQuery checks if a query is an introspection query
 // Introspection queries query __schema or __type which are meta fields
 func isIntrospectionQuery(query string) bool {
-	// Simple heuristic: check if the query contains __schema or __type
+	// Simple heuristic: check if the query contains __schema or __type as root fields
 	// This covers the standard GraphQL introspection queries
-	return strings.Contains(query, "__schema") || strings.Contains(query, "__type")
+	// Note: __typename inline in queries is fine (not introspection)
+	return strings.Contains(query, "{__schema") || strings.Contains(query, "{__type") ||
+		strings.Contains(query, "{ __schema") || strings.Contains(query, "{ __type")
 }

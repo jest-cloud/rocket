@@ -28,6 +28,11 @@ type FieldResolveFn = types.FieldResolveFn
 // Re-exported from internal/types for public API
 type SubscriptionResolveFn = types.SubscriptionResolveFn
 
+// EntityResolveFn is a function that resolves an entity from its representation
+// Used for GraphQL Federation __resolveReference
+// Re-exported from internal/types for public API
+type EntityResolveFn = types.EntityResolveFn
+
 // ModuleResolvers is the interface that all module resolvers must implement
 // Re-exported from internal/types for public API
 type ModuleResolvers = types.ModuleResolvers
@@ -37,6 +42,13 @@ type Config struct {
 	SchemaPath       string                                       // Path to the compiled schema.graphql file
 	EnablePlayground bool                                         // Enable GraphQL playground (default: false)
 	ContextBuilder   func(r *httphandler.Request) context.Context // Optional: Build custom context per-request (Apollo-style pattern)
+	Federation       FederationConfig                             // Federation configuration
+}
+
+// FederationConfig holds federation-specific configuration
+type FederationConfig struct {
+	Enabled     bool   // Enable GraphQL Federation support
+	ServiceName string // Optional: Name of this subgraph (for debugging/tracing)
 }
 
 // Config defaults

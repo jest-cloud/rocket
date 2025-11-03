@@ -11,6 +11,10 @@ type FieldResolveFn func(p ResolveParams) (interface{}, error)
 // It returns a channel that emits values over time
 type SubscriptionResolveFn func(p ResolveParams) (<-chan interface{}, error)
 
+// EntityResolveFn is a function that resolves an entity from its representation
+// Used for GraphQL Federation __resolveReference
+type EntityResolveFn func(p ResolveParams, representation map[string]interface{}) (interface{}, error)
+
 // ResolveParams contains all the information for resolving a field
 type ResolveParams struct {
 	Source  interface{}
@@ -35,5 +39,6 @@ type ModuleResolvers interface {
 	MutationResolvers() map[string]FieldResolveFn
 	SubscriptionResolvers() map[string]SubscriptionResolveFn
 	TypeResolvers() map[string]map[string]FieldResolveFn
+	EntityResolvers() map[string]EntityResolveFn // Federation entity resolvers
 }
 
