@@ -252,7 +252,10 @@ That's it! You now have a working GraphQL API powered by Rocket. 🎉
 
 ### Reference
 - **[CHANGELOG](dev/docs/CHANGELOG.md)** - Release history and changes
-- **[Examples](examples/)** - Working examples including subscriptions
+
+### Examples
+- **[Subscriptions](examples/subscriptions/)** - Real-time subscriptions with WebSockets
+- **[Context](examples/context/)** - Authentication and context patterns (middleware vs Apollo-style)
 
 ## Quick Start
 

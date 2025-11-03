@@ -13,6 +13,7 @@ import (
 // This avoids importing rocket package to prevent cycles
 type Schema interface {
 	Execute(ctx context.Context, query string, variables map[string]interface{}, operationName string) *types.Result
+	GetContextBuilder() func(r *http.Request) context.Context
 }
 
 // Request represents a GraphQL HTTP request
@@ -72,8 +73,14 @@ func Handler(schema Schema) http.HandlerFunc {
 			// Variables would be in query param as JSON string
 		}
 
-		// Execute the query/mutation
-		result := schema.Execute(r.Context(), req.Query, req.Variables, req.OperationName)
+	// Build context using ContextBuilder if provided, otherwise use request context
+	ctx := r.Context()
+	if contextBuilder := schema.GetContextBuilder(); contextBuilder != nil {
+		ctx = contextBuilder(r)
+	}
+	
+	// Execute the query/mutation
+	result := schema.Execute(ctx, req.Query, req.Variables, req.OperationName)
 
 		// Send response
 		w.Header().Set("Content-Type", "application/json")

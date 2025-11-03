@@ -3,6 +3,9 @@
 package rocket
 
 import (
+	"context"
+	httphandler "net/http"
+
 	"github.com/jest-cloud/rocket/internal/compiler"
 	"github.com/jest-cloud/rocket/internal/registry"
 	"github.com/jest-cloud/rocket/internal/types"
@@ -31,8 +34,9 @@ type ModuleResolvers = types.ModuleResolvers
 
 // Config holds configuration for building a GraphQL schema
 type Config struct {
-	SchemaPath       string // Path to the compiled schema.graphql file
-	EnablePlayground bool   // Enable GraphQL playground (default: false)
+	SchemaPath       string                                       // Path to the compiled schema.graphql file
+	EnablePlayground bool                                         // Enable GraphQL playground (default: false)
+	ContextBuilder   func(r *httphandler.Request) context.Context // Optional: Build custom context per-request (Apollo-style pattern)
 }
 
 // Config defaults

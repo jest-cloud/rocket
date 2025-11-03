@@ -3,6 +3,7 @@ package rocket
 import (
 	"context"
 	"fmt"
+	httphandler "net/http"
 	"os"
 	"strings"
 
@@ -283,6 +284,12 @@ type Schema struct {
 	schemaDoc *ast.Document
 	// Note: We don't cache the planner anymore - we create a fresh one for each query
 	// to ensure visitor.Operation is properly populated during planning
+}
+
+// GetContextBuilder returns the context builder function if configured
+// This is used by the HTTP handler to build per-request context (Apollo-style pattern)
+func (s *Schema) GetContextBuilder() func(r *httphandler.Request) context.Context {
+	return s.config.ContextBuilder
 }
 
 // Execute executes a GraphQL query/mutation

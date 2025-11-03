@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **🎯 Apollo-style Context Builder** - `ContextBuilder` config option for per-request context building
+  - Similar to Apollo GraphQL's `context` function
+  - Alternative to middleware pattern
+  - Available in `Config.ContextBuilder`
+- Complete context documentation with both patterns (middleware vs Apollo-style)
+- Context example with working code for both approaches
+- Comprehensive resolver documentation covering all operation types
+
+### Documentation
+- Added `CONTEXT.md` - Complete guide for authentication and context patterns
+- Added `RESOLVERS.md` - Complete resolver guide (queries, mutations, subscriptions, types)
+- Updated all examples to demonstrate both context patterns
+- Reorganized README documentation into clear categories
+
 ## [0.3.0] - 2025-11-03
 
 ### Added
