@@ -1,138 +1,59 @@
 # Subscriptions Status
 
-## Current State: NOT IMPLEMENTED ❌
+## Current State: FULLY IMPLEMENTED ✅
 
-Subscriptions are **not currently implemented** in Rocket. Here's what we have and what's needed:
+Subscriptions are **fully implemented** in Rocket v0.3.0! Real-time GraphQL subscriptions work via WebSocket with the `graphql-ws` protocol.
 
-## What Exists
+## What's Implemented ✅
 
-### 1. Operation Type Detection ✅
+### 1. Subscription Types ✅
 ```go
-// In schema.go - extractFieldsAndType()
-operationType := opDef.OperationType // Can be Query, Mutation, or Subscription
-```
-
-### 2. Planner Support ✅
-```go
-// In internal/datasource/planner.go
-if p.factory.operationType == ast.OperationTypeSubscription {
-    typeName = "Subscription"
-}
-```
-
-### 3. Schema Support ✅
-- Can parse schemas with `type Subscription { ... }`
-- graphql-go-tools has full subscription support
-
-## What's Missing
-
-### 1. Subscription Execution Handler ❌
-Currently we only handle Query and Mutation:
-```go
-// In schema.go Execute()
-if operationType == ast.OperationTypeMutation {
-    return s.executeMutationDirectly(...)
-}
-// Queries go to DataSource
-// Subscriptions: NOT HANDLED
-```
-
-**Need**: Add subscription detection and execution path
-
-### 2. WebSocket/SSE Transport ❌
-Subscriptions require long-lived connections:
-- **WebSocket** - bidirectional, real-time
-- **SSE (Server-Sent Events)** - unidirectional, simpler
-
-**Current**: Only HTTP POST/GET handlers exist
-**Need**: WebSocket or SSE handler
-
-### 3. Subscription Resolver Pattern ❌
-Current resolver registry has:
-- `Query map[string]FieldResolveFn`
-- `Mutation map[string]FieldResolveFn`
-- `Types map[string]map[string]FieldResolveFn`
-
-**Need**: Add `Subscription map[string]SubscriptionResolveFn`
-
-Where `SubscriptionResolveFn` returns a channel or async iterator:
-```go
+// SubscriptionResolveFn returns a channel that emits values over time
 type SubscriptionResolveFn func(p ResolveParams) (<-chan interface{}, error)
 ```
 
-### 4. Subscription Manager ❌
-Need a manager to:
-- Track active subscriptions per client
-- Handle subscription lifecycle (subscribe/unsubscribe)
-- Broadcast events to subscribers
-- Clean up on disconnect
+### 2. Resolver Registry ✅
+```go
+type ResolverRegistry struct {
+    Query        map[string]FieldResolveFn
+    Mutation     map[string]FieldResolveFn
+    Subscription map[string]SubscriptionResolveFn  // ✅ Added
+    Types        map[string]map[string]FieldResolveFn
+}
+```
 
-## Implementation Plan
+### 3. WebSocket Transport ✅
+- **graphql-ws protocol** implementation
+- Connection lifecycle (init, ack, ping/pong)
+- Multiple subscriptions per connection
+- Proper cleanup on disconnect
 
-### Phase 1: Basic Infrastructure (4-6 hours)
-1. **Add Subscription to Registry**
-   ```go
-   type ResolverRegistry struct {
-       Query        map[string]FieldResolveFn
-       Mutation     map[string]FieldResolveFn
-       Subscription map[string]SubscriptionResolveFn // NEW
-       Types        map[string]map[string]FieldResolveFn
-   }
-   ```
+### 4. Subscription Execution ✅
+```go
+// In schema.go
+func (s *Schema) ExecuteSubscription(ctx context.Context, query string, 
+    variables map[string]interface{}, operationName string) (<-chan interface{}, error)
+```
 
-2. **Add Subscription Detection**
-   ```go
-   // In schema.go Execute()
-   if operationType == ast.OperationTypeSubscription {
-       return nil, fmt.Errorf("subscriptions require WebSocket transport")
-   }
-   ```
+### 5. Context Cancellation ✅
+- Subscriptions stop when client disconnects
+- Proper cleanup of resources
+- No goroutine leaks
 
-3. **Add WebSocket Handler**
-   ```go
-   // In internal/http/websocket.go
-   func WebSocketHandler(schema *Schema) http.HandlerFunc {
-       // Upgrade connection
-       // Handle GraphQL-WS protocol
-       // Execute subscriptions
-   }
-   ```
+### 6. Nested Field Resolution ✅
+- Resolves nested fields in subscription payloads
+- Works with both scalar and object types
+- Handles selection sets correctly
 
-### Phase 2: Subscription Execution (6-8 hours)
-1. **Implement graphql-ws Protocol**
-   - Handle connection_init
-   - Handle subscribe
-   - Handle complete
-   - Send next, error, complete
+## Quick Start
 
-2. **Execute Subscription Resolvers**
-   ```go
-   func (s *Schema) executeSubscription(
-       ctx context.Context,
-       queryDoc *ast.Document,
-       variables map[string]interface{},
-       fieldName string,
-   ) (<-chan interface{}, error) {
-       // Get subscription resolver
-       // Call resolver (returns channel)
-       // Stream results to client
-   }
-   ```
+## Installation
 
-3. **Connection Management**
-   - Track active subscriptions
-   - Handle client disconnects
-   - Clean up resources
+```bash
+go get github.com/jest-cloud/rocket@v0.3.0
+```
 
-### Phase 3: Testing & Polish (4-6 hours)
-1. Add subscription tests
-2. Handle edge cases (reconnect, error handling)
-3. Add examples
-4. Documentation
-
-**Total Estimated Effort: 14-20 hours**
-
-## Example Usage (Future)
+## Usage Example
 
 ### Schema
 ```graphql
@@ -215,34 +136,36 @@ subscription.subscribe({
 // Could implement ourselves or use existing library
 ```
 
-## Current Workaround
+## Testing
 
-For real-time features without subscriptions, use:
-1. **Polling** - Client polls every N seconds
-2. **Separate WebSocket** - Custom WebSocket outside GraphQL (like fire-print does)
-3. **Webhooks** - Server pushes to client URL
+All subscription tests pass! ✅
 
-## Priority Assessment
+```bash
+cd /path/to/rocket
+go test -v ./test -run TestSubscription
+```
 
-**Subscriptions are NOT critical for MVP** because:
-- ✅ All queries work
-- ✅ All mutations work
-- ✅ Most apps don't need real-time subscriptions
-- ✅ Can use polling or separate WebSocket as workaround
+Output:
+```
+=== RUN   TestSubscriptionExecution
+=== RUN   TestSubscriptionExecution/subscription_via_HTTP_returns_error
+    ✓ Subscription over HTTP correctly returns error
+=== RUN   TestSubscriptionExecution/countdown_subscription
+    ✓ Countdown subscription received 4 events (3,2,1,0)
+=== RUN   TestSubscriptionExecution/messageAdded_subscription
+    ✓ MessageAdded subscription received 3 events with nested fields
+=== RUN   TestSubscriptionExecution/context_cancellation
+    ✓ Subscription stopped after context cancellation
+--- PASS: TestSubscriptionExecution (1.01s)
+```
 
-**Subscriptions ARE important for:**
-- Real-time chat applications
-- Live dashboards
-- Collaborative editing
-- Event streaming
+## Complete Example
 
-## Decision
-
-**Recommendation**: 
-- Document as "Future Feature"
-- Add to roadmap
-- Implement when there's a concrete use case requiring subscriptions
-- For now, polling or separate WebSocket is sufficient
+See the [full working example](../../examples/subscriptions/) with:
+- Real-time chat
+- Countdown demo
+- User status updates
+- Apollo Client integration guide
 
 ## References
 
@@ -252,14 +175,15 @@ For real-time features without subscriptions, use:
 
 ## Status Summary
 
-| Feature | Status | Effort |
-|---------|--------|--------|
-| Query Execution | ✅ Complete | Done |
-| Mutation Execution | ✅ Complete | Done |
-| Subscription Detection | ⚠️ Partial | Done |
-| Subscription Execution | ❌ Not Implemented | 14-20 hours |
-| WebSocket Handler | ❌ Not Implemented | Included above |
-| graphql-ws Protocol | ❌ Not Implemented | Included above |
+| Feature | Status | Version |
+|---------|--------|---------|
+| Query Execution | ✅ Complete | v0.1.0+ |
+| Mutation Execution | ✅ Complete | v0.2.0+ |
+| Subscription Execution | ✅ Complete | v0.3.0+ |
+| WebSocket Handler | ✅ Complete | v0.3.0+ |
+| graphql-ws Protocol | ✅ Complete | v0.3.0+ |
+| Context Cancellation | ✅ Complete | v0.3.0+ |
+| Nested Field Resolution | ✅ Complete | v0.3.0+ |
 
-**Current Capability: 66% (2 of 3 operation types)**
+**Current Capability: 100% (3 of 3 operation types)** 🎉
 
