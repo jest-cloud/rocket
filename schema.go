@@ -6,9 +6,13 @@ import (
 	"os"
 	"strings"
 
-	"github.com/graphql-go/graphql"
-	"github.com/vektah/gqlparser/v2"
-	"github.com/vektah/gqlparser/v2/ast"
+	"github.com/jensneuse/abstractlogger"
+	"github.com/wundergraph/graphql-go-tools/v2/pkg/ast"
+	"github.com/wundergraph/graphql-go-tools/v2/pkg/astnormalization"
+	"github.com/wundergraph/graphql-go-tools/v2/pkg/astparser"
+	"github.com/wundergraph/graphql-go-tools/v2/pkg/asttransform"
+	"github.com/wundergraph/graphql-go-tools/v2/pkg/engine/plan"
+	"github.com/wundergraph/graphql-go-tools/v2/pkg/operationreport"
 )
 
 // BuildSchema builds an executable GraphQL schema from .graphql file and module resolvers
@@ -20,60 +24,110 @@ func BuildSchema(config Config, modules ...ModuleResolvers) (*Schema, error) {
 		return nil, fmt.Errorf("failed to read schema file: %w", err)
 	}
 
-	// Parse schema using gqlparser
-	parsedSchema, err := gqlparser.LoadSchema(&ast.Source{
-		Name:  config.SchemaPath,
-		Input: string(schemaBytes),
-	})
+	// Parse schema using graphql-go-tools astparser
+	schemaDoc, report := astparser.ParseGraphqlDocumentString(string(schemaBytes))
+	if report.HasErrors() {
+		return nil, fmt.Errorf("failed to parse schema: %v", report.Error())
+	}
+
+	// Merge with base schema (required by planner)
+	err = asttransform.MergeDefinitionWithBaseSchema(&schemaDoc)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse schema: %w", err)
+		return nil, fmt.Errorf("failed to merge base schema: %w", err)
 	}
 
 	// Create resolver registry from modules
 	resolvers := NewResolverRegistry(modules...)
 
-	// Build graphql-go schema
-	builder := newSchemaBuilder(resolvers, parsedSchema)
-	executableSchema, err := builder.build()
+	// Build execution plan using graphql-go-tools
+	planner, err := buildExecutionPlan(&schemaDoc, resolvers)
 	if err != nil {
-		return nil, fmt.Errorf("failed to build schema: %w", err)
+		return nil, fmt.Errorf("failed to build execution plan: %w", err)
 	}
 
 	return &Schema{
-		config:           config,
-		resolvers:        resolvers,
-		executableSchema: executableSchema,
-		parsedSchema:     parsedSchema,
+		config:        config,
+		resolvers:     resolvers,
+		schemaDoc:     &schemaDoc,
+		planner:       planner,
 	}, nil
+}
+
+// buildExecutionPlan creates an execution plan using graphql-go-tools planner
+func buildExecutionPlan(schemaDoc *ast.Document, resolvers *ResolverRegistry) (*plan.Planner, error) {
+	// Create Rocket DataSource factory
+	dsFactory := NewRocketDataSourceFactory(resolvers, schemaDoc)
+
+	// Convert to DataSourceConfiguration
+	dsConfig, err := dsFactory.ToDataSourceConfiguration("rocket", "Rocket")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create DataSource configuration: %w", err)
+	}
+
+	// Create planner configuration
+	// DataSourceConfiguration extends DataSource, so we can use it directly
+	plannerConfig := plan.Configuration{
+		DataSources: []plan.DataSource{dsConfig},
+		Fields:      plan.FieldConfigurations{},
+		Logger:      abstractlogger.Noop{},
+	}
+
+	// Create planner
+	planner, err := plan.NewPlanner(plannerConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create planner: %w", err)
+	}
+
+	return planner, nil
 }
 
 // Schema represents a compiled and executable GraphQL schema
 type Schema struct {
-	config           Config
-	resolvers        *ResolverRegistry
-	executableSchema graphql.Schema
-	parsedSchema     *ast.Schema
+	config    Config
+	resolvers *ResolverRegistry
+	schemaDoc *ast.Document
+	planner   *plan.Planner
 }
 
 // Execute executes a GraphQL query/mutation
 // Field order is always preserved for better developer experience
 func (s *Schema) Execute(ctx context.Context, query string, variables map[string]interface{}, operationName string) *Result {
-	params := graphql.Params{
-		Schema:         s.executableSchema,
-		RequestString:  query,
-		VariableValues: variables,
-		OperationName:  operationName,
-		Context:        ctx,
+	// Parse query using graphql-go-tools
+	queryDoc, report := astparser.ParseGraphqlDocumentString(query)
+	if report.HasErrors() {
+		return &Result{
+			Errors: []Error{{
+				Message: fmt.Sprintf("Failed to parse query: %v", report.Error()),
+			}},
+		}
 	}
 
-	// Skip field ordering for introspection queries (they use fragment spreads heavily)
-	if isIntrospectionQuery(query) {
-		result := graphql.Do(params)
-		return convertResult(result)
+	// Normalize query (required by planner)
+	astnormalization.NormalizeOperation(&queryDoc, s.schemaDoc, &report)
+	if report.HasErrors() {
+		return &Result{
+			Errors: []Error{{
+				Message: fmt.Sprintf("Failed to normalize query: %v", report.Error()),
+			}},
+		}
 	}
 
-	// Execute with field order preservation for regular queries
-	return ExecuteWithFieldOrder(params, query)
+	// Create execution plan
+	var planReport operationreport.Report
+	execPlan := s.planner.Plan(&queryDoc, s.schemaDoc, operationName, &planReport)
+	if planReport.HasErrors() {
+		errors := make([]Error, 0)
+		for _, err := range planReport.InternalErrors {
+			errors = append(errors, Error{Message: err.Error()})
+		}
+		for _, err := range planReport.ExternalErrors {
+			errors = append(errors, Error{Message: err.Message})
+		}
+		return &Result{Errors: errors}
+	}
+
+	// Execute using graphql-go-tools resolver
+	return ExecutePlan(ctx, execPlan, variables, s.resolvers)
 }
 
 

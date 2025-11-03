@@ -2,237 +2,146 @@ package rocket
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"fmt"
 
-	"github.com/graphql-go/graphql"
-	"github.com/graphql-go/graphql/gqlerrors"
-	"github.com/vektah/gqlparser/v2/ast"
-	"github.com/vektah/gqlparser/v2/parser"
+	"github.com/wundergraph/astjson"
+	"github.com/wundergraph/graphql-go-tools/v2/pkg/engine/plan"
+	"github.com/wundergraph/graphql-go-tools/v2/pkg/engine/resolve"
 )
 
-// ExecuteWithFieldOrder executes a GraphQL query and returns a result with preserved field order
-func ExecuteWithFieldOrder(params graphql.Params, queryString string) *Result {
-	// Execute the query
-	result := graphql.Do(params)
-
-	// Convert to Rocket result
-	if result.HasErrors() || result.Data == nil {
-		return convertResult(result)
+// ExecutePlan executes a GraphQL execution plan using graphql-go-tools resolver
+func ExecutePlan(ctx context.Context, execPlan plan.Plan, variables map[string]interface{}, resolvers *ResolverRegistry) *Result {
+	// Convert plan to SynchronousResponsePlan to access Response
+	syncPlan, ok := execPlan.(*plan.SynchronousResponsePlan)
+	if !ok {
+		return &Result{
+			Errors: []Error{{
+				Message: "unsupported plan type",
+			}},
+		}
 	}
 
-	// Parse query to get field selection order
-	source := &ast.Source{
-		Name:  "query",
-		Input: queryString,
-	}
-	doc, gqlErr := parser.ParseQuery(source)
-	if gqlErr != nil {
-		// If we can't parse the query, fall back to unordered result
-		return convertResult(result)
-	}
-
-	// Get operation
-	var operation *ast.OperationDefinition
-	if params.OperationName != "" {
-		for _, op := range doc.Operations {
-			if op.Name == params.OperationName {
-				operation = op
-				break
+	// Convert variables to astjson format
+	var variablesJSON *astjson.Value
+	if len(variables) > 0 {
+		variablesBytes, err := json.Marshal(variables)
+		if err != nil {
+			return &Result{
+				Errors: []Error{{
+					Message: fmt.Sprintf("failed to marshal variables: %v", err),
+				}},
 			}
 		}
-	} else if len(doc.Operations) > 0 {
-		for _, op := range doc.Operations {
-			operation = op
-			break
+		variablesJSON, err = astjson.ParseBytes(variablesBytes)
+		if err != nil {
+			return &Result{
+				Errors: []Error{{
+					Message: fmt.Sprintf("failed to parse variables: %v", err),
+				}},
+			}
 		}
 	}
 
-	if operation == nil {
-		return convertResult(result)
+	// Create resolver context using NewContext
+	resolverCtx := resolve.NewContext(ctx)
+	resolverCtx.Variables = variablesJSON
+
+	// Create resolver instance - New takes context and ResolverOptions
+	resolver := resolve.New(ctx, resolve.ResolverOptions{
+		ResolvableOptions: resolve.ResolvableOptions{
+			ApolloCompatibilityValueCompletionInExtensions: false,
+			ApolloCompatibilityTruncateFloatValues:         false,
+			ApolloCompatibilitySuppressFetchErrors:         false,
+			ApolloCompatibilityReplaceInvalidVarError:      false,
+		},
+	})
+	
+	// Build Fetches tree from RawFetches if Fetches is nil
+	// The planner populates RawFetches, but ResolveGraphQLResponse needs Fetches tree
+	// This is normally done by a PostProcessor, but we need to do it manually
+	if syncPlan.Response.Fetches == nil && len(syncPlan.Response.RawFetches) > 0 {
+		// For a single fetch, use Single() helper
+		if len(syncPlan.Response.RawFetches) == 1 {
+			fetchItem := syncPlan.Response.RawFetches[0]
+			if fetchItem.Fetch != nil {
+				syncPlan.Response.Fetches = resolve.Single(fetchItem.Fetch)
+			}
+		} else {
+			// For multiple fetches, use Parallel() helper
+			fetches := make([]*resolve.FetchTreeNode, 0, len(syncPlan.Response.RawFetches))
+			for _, fetchItem := range syncPlan.Response.RawFetches {
+				if fetchItem.Fetch != nil {
+					fetches = append(fetches, resolve.Single(fetchItem.Fetch))
+				}
+			}
+			if len(fetches) > 0 {
+				syncPlan.Response.Fetches = resolve.Parallel(fetches...)
+			}
+		}
 	}
 
-	// Reorder data based on selection set
-	orderedData := reorderData(result.Data, operation.SelectionSet)
+	// Extract field coordinates from FetchInfo and store them in RocketSource
+	// This must happen BEFORE ResolveGraphQLResponse calls Load
+	for _, fetch := range syncPlan.Response.RawFetches {
+		if fetch.Fetch != nil {
+			if singleFetch, ok := fetch.Fetch.(*resolve.SingleFetch); ok {
+				if info := singleFetch.FetchInfo(); info != nil {
+					// Extract field coordinate and store it in RocketSource
+					if rocketSource, ok := singleFetch.DataSource.(*RocketSource); ok && len(info.RootFields) > 0 {
+						coord := info.RootFields[0]
+						rocketSource.fieldCoord = &fieldCoordinate{
+							TypeName:  coord.TypeName,
+							FieldName: coord.FieldName,
+						}
+					}
+				}
+			}
+		}
+	}
+	
+	var output bytes.Buffer
+	_, err := resolver.ResolveGraphQLResponse(resolverCtx, syncPlan.Response, nil, &output)
+	if err != nil {
+		return &Result{
+			Errors: []Error{{
+				Message: fmt.Sprintf("failed to resolve query: %v", err),
+			}},
+		}
+	}
+
+	// Parse the output JSON
+	var result map[string]interface{}
+	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
+		return &Result{
+			Errors: []Error{{
+				Message: fmt.Sprintf("failed to parse result: %v", err),
+			}},
+		}
+	}
+
+	// Extract data and errors from result
+	data, _ := result["data"].(map[string]interface{})
+	var errors []Error
+	if errs, ok := result["errors"].([]interface{}); ok {
+		errors = make([]Error, len(errs))
+		for i, e := range errs {
+			if errMap, ok := e.(map[string]interface{}); ok {
+				message, _ := errMap["message"].(string)
+				errors[i] = Error{
+					Message: message,
+				}
+				if path, ok := errMap["path"].([]interface{}); ok {
+					errors[i].Path = path
+				}
+			}
+		}
+	}
 
 	return &Result{
-		Data:   orderedData,
-		Errors: convertErrors(result.Errors),
+		Data:   data,
+		Errors: errors,
 	}
-}
-
-// reorderData recursively reorders data based on selection set
-func reorderData(data interface{}, selectionSet ast.SelectionSet) interface{} {
-	switch v := data.(type) {
-	case map[string]interface{}:
-		return reorderMap(v, selectionSet)
-	case []interface{}:
-		return reorderArray(v, selectionSet)
-	default:
-		return data
-	}
-}
-
-// reorderMap reorders a map based on field selection order
-func reorderMap(data map[string]interface{}, selectionSet ast.SelectionSet) *OrderedMap {
-	ordered := NewOrderedMap()
-
-	if len(selectionSet) == 0 {
-		// When no selection set, preserve data keys in alphabetical order for consistency
-		// This is typically for scalar fields
-		keys := make([]string, 0, len(data))
-		for key := range data {
-			keys = append(keys, key)
-		}
-		for _, key := range keys {
-			ordered.Set(key, data[key])
-		}
-		return ordered
-	}
-
-	// Process selections in order
-	for _, selection := range selectionSet {
-		switch sel := selection.(type) {
-		case *ast.Field:
-			fieldName := sel.Name
-			if sel.Alias != "" {
-				fieldName = sel.Alias
-			}
-
-			if value, ok := data[fieldName]; ok {
-				// Recursively reorder nested objects
-				if len(sel.SelectionSet) > 0 {
-					value = reorderData(value, sel.SelectionSet)
-				}
-				ordered.Set(fieldName, value)
-			}
-		case *ast.InlineFragment:
-			// Handle inline fragments by processing their selection set
-			for _, fragSelection := range sel.SelectionSet {
-				if field, ok := fragSelection.(*ast.Field); ok {
-					fieldName := field.Name
-					if field.Alias != "" {
-						fieldName = field.Alias
-					}
-					if value, ok := data[fieldName]; ok {
-						if len(field.SelectionSet) > 0 {
-							value = reorderData(value, field.SelectionSet)
-						}
-						ordered.Set(fieldName, value)
-					}
-				}
-			}
-		case *ast.FragmentSpread:
-			// Fragment spreads would need the fragment definition from the schema
-			// For now, we'll skip them - they're less common
-		}
-	}
-
-	return ordered
-}
-
-// reorderArray reorders each element in an array
-func reorderArray(data []interface{}, selectionSet ast.SelectionSet) []interface{} {
-	result := make([]interface{}, len(data))
-	for i, item := range data {
-		result[i] = reorderData(item, selectionSet)
-	}
-	return result
-}
-
-// OrderedMap preserves insertion order for JSON marshaling
-type OrderedMap struct {
-	keys   []string
-	values map[string]interface{}
-}
-
-// NewOrderedMap creates a new ordered map
-func NewOrderedMap() *OrderedMap {
-	return &OrderedMap{
-		keys:   []string{},
-		values: make(map[string]interface{}),
-	}
-}
-
-// Set adds or updates a key-value pair
-func (m *OrderedMap) Set(key string, value interface{}) {
-	if _, exists := m.values[key]; !exists {
-		m.keys = append(m.keys, key)
-	}
-	m.values[key] = value
-}
-
-// Get retrieves a value by key
-func (m *OrderedMap) Get(key string) interface{} {
-	return m.values[key]
-}
-
-// Has checks if a key exists
-func (m *OrderedMap) Has(key string) bool {
-	_, exists := m.values[key]
-	return exists
-}
-
-// Keys returns all keys in insertion order
-func (m *OrderedMap) Keys() []string {
-	return m.keys
-}
-
-// MarshalJSON implements json.Marshaler to preserve order
-func (m *OrderedMap) MarshalJSON() ([]byte, error) {
-	var buf bytes.Buffer
-	buf.WriteByte('{')
-
-	for i, key := range m.keys {
-		if i > 0 {
-			buf.WriteByte(',')
-		}
-
-		// Marshal key
-		keyBytes, err := json.Marshal(key)
-		if err != nil {
-			return nil, err
-		}
-		buf.Write(keyBytes)
-		buf.WriteByte(':')
-
-		// Marshal value
-		valueBytes, err := json.Marshal(m.values[key])
-		if err != nil {
-			return nil, err
-		}
-		buf.Write(valueBytes)
-	}
-
-	buf.WriteByte('}')
-	return buf.Bytes(), nil
-}
-
-// convertErrors converts graphql errors to Rocket errors
-func convertErrors(errors []gqlerrors.FormattedError) []Error {
-	if len(errors) == 0 {
-		return nil
-	}
-
-	result := make([]Error, len(errors))
-	for i, gqlErr := range errors {
-		result[i] = Error{
-			Message: gqlErr.Message,
-			Path:    gqlErr.Path,
-		}
-	}
-	return result
-}
-
-// convertResult converts graphql.Result to Rocket Result
-func convertResult(result *graphql.Result) *Result {
-	rocketResult := &Result{
-		Data: result.Data,
-	}
-
-	if result.HasErrors() {
-		rocketResult.Errors = convertErrors(result.Errors)
-	}
-
-	return rocketResult
 }
 

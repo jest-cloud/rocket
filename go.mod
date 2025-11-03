@@ -3,18 +3,17 @@ module github.com/jest-cloud/rocket
 go 1.25
 
 require (
-	github.com/graphql-go/graphql v0.8.1
-	github.com/vektah/gqlparser/v2 v2.5.30
+	github.com/jensneuse/abstractlogger v0.0.4
+	github.com/wundergraph/astjson v0.0.0-20250106123708-be463c97e083
+	github.com/wundergraph/graphql-go-tools/v2 v2.0.0-rc.236
 )
 
 require (
-	github.com/agnivade/levenshtein v1.2.1 // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/gobwas/httphead v0.1.0 // indirect
 	github.com/gobwas/pool v0.2.1 // indirect
 	github.com/gobwas/ws v1.4.0 // indirect
-	github.com/jensneuse/abstractlogger v0.0.4 // indirect
 	github.com/jensneuse/byte-template v0.0.0-20200214152254-4f3cf06e5c68 // indirect
 	github.com/kingledion/go-tools v0.6.0 // indirect
 	github.com/phf/go-queue v0.0.0-20170504031614-9abe38d0371d // indirect
@@ -24,8 +23,6 @@ require (
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
-	github.com/wundergraph/astjson v0.0.0-20250106123708-be463c97e083 // indirect
-	github.com/wundergraph/graphql-go-tools/v2 v2.0.0-rc.236 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.26.0 // indirect
