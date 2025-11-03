@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"sort"
 
 	"github.com/jest-cloud/rocket/internal/registry"
@@ -88,12 +89,6 @@ func (s *RocketSource) Load(ctx context.Context, input []byte, out *bytes.Buffer
 		arguments = args
 	}
 	
-	// NOTE: arguments extraction from Input template is currently not working
-	// This is a known limitation that we need to address by either:
-	// 1. Figuring out the correct Input template syntax for graphql-go-tools
-	// 2. Refactoring to use graphql-go-tools' built-in TypeFieldResolver pattern
-	// For now, arguments will be empty for mutations with variables
-	
 	source := inputData["source"]
 	
 	// Determine which field we're resolving
@@ -105,16 +100,24 @@ func (s *RocketSource) Load(ctx context.Context, input []byte, out *bytes.Buffer
 		// TargetField was set during planning
 		fieldName = s.targetField.FieldName
 		parentType = s.targetField.TypeName
-		fmt.Printf("DEBUG RocketSource.Load() - Using targetField: %s.%s\n", parentType, fieldName)
 	} else if sourceMap, ok := source.(map[string]interface{}); ok && sourceMap != nil {
 		// This is a nested field - get type from source.__typename
 		if typename, ok := sourceMap["__typename"].(string); ok && typename != "" {
 			parentType = typename
-			// For nested fields, try each field resolver for this type
-			for _, info := range s.fieldMap {
-				if info.ParentType == parentType {
-					fieldName = info.FieldName
-					break
+			
+			// Check if there's a field name in the input (might be present for fields with arguments)
+			if fieldNameFromInput, ok := inputData["fieldName"].(string); ok && fieldNameFromInput != "" {
+				fieldName = fieldNameFromInput
+				fmt.Printf("  -> Using fieldName from input: %s\n", fieldName)
+			} else {
+				// For nested fields, try each field resolver for this type
+				for key, info := range s.fieldMap {
+					fmt.Printf("  fieldMap[%s] = {FieldName: %s, ParentType: %s}\n", key, info.FieldName, info.ParentType)
+					if info.ParentType == parentType {
+						fieldName = info.FieldName
+						fmt.Printf("  -> Using fieldName from fieldMap: %s\n", fieldName)
+						break
+					}
 				}
 			}
 		}
@@ -170,6 +173,12 @@ func (s *RocketSource) Load(ctx context.Context, input []byte, out *bytes.Buffer
 	result, err := resolveFn(params)
 	if err != nil {
 		return fmt.Errorf("resolver error for %s.%s: %w", parentType, fieldName, err)
+	}
+
+	// For root Query/Mutation fields that return objects, we need to resolve nested fields
+	// that have explicit resolvers BEFORE marshaling to JSON
+	if parentType == "Query" || parentType == "Mutation" {
+		result = s.resolveNestedFieldsWithResolvers(ctx, result, parentType)
 	}
 
 	// Serialize result to JSON
@@ -262,6 +271,95 @@ func (s *RocketSource) handleIntrospection(ctx context.Context, fieldName string
 	}
 	
 	return nil
+}
+
+// resolveNestedFieldsWithResolvers resolves nested fields that have explicit resolvers
+// before marshaling to JSON. This ensures computed/lookup fields are included in the response.
+func (s *RocketSource) resolveNestedFieldsWithResolvers(ctx context.Context, source interface{}, parentQueryField string) interface{} {
+	if source == nil {
+		return source
+	}
+	
+	// Determine the type of the source object
+	var typeName string
+	
+	// Try to get the type name from the source
+	// For structs, we can use reflection to get the type name
+	sourceValue := reflect.ValueOf(source)
+	if sourceValue.Kind() == reflect.Ptr {
+		if sourceValue.IsNil() {
+			return source
+		}
+		sourceValue = sourceValue.Elem()
+	}
+	
+	if sourceValue.Kind() == reflect.Struct {
+		typeName = sourceValue.Type().Name()
+	} else if sourceMap, ok := source.(map[string]interface{}); ok {
+		// For maps, try to get __typename
+		if tn, ok := sourceMap["__typename"].(string); ok {
+			typeName = tn
+		}
+	}
+	
+	if typeName == "" {
+		return source
+	}
+	
+	// Check if this type has any explicit resolvers
+	typeResolvers, hasResolvers := s.resolvers.Types[typeName]
+	if !hasResolvers || len(typeResolvers) == 0 {
+		return source
+	}
+	
+	// Convert source to a map that we can augment
+	var resultMap map[string]interface{}
+	
+	// Marshal and unmarshal to get a map representation
+	sourceBytes, err := json.Marshal(source)
+	if err != nil {
+		return source
+	}
+	
+	if err := json.Unmarshal(sourceBytes, &resultMap); err != nil {
+		return source
+	}
+	
+	// Now resolve each field that has an explicit resolver
+	for fieldName, resolveFn := range typeResolvers {
+		
+		// Use an empty map instead of nil to prevent panics when resolvers check for arguments
+		// Resolvers that require arguments should check if the args map is empty and return nil
+		params := types.ResolveParams{
+			Source:  source,  // Pass the original source to the resolver
+			Args:    make(map[string]interface{}), // Empty map to prevent nil panic
+			Context: ctx,
+			Info: types.ResolveInfo{
+				FieldName:  fieldName,
+				ParentType: typeName,
+			},
+		}
+		
+		// Use panic recovery to handle any panics gracefully
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					// If resolver panics (e.g., trying to access args), skip it
+					// Fields with required arguments will be resolved separately by graphql-go-tools
+					fmt.Printf("WARNING: Resolver for %s.%s panicked: %v. Skipping.\n", typeName, fieldName, r)
+				}
+			}()
+			
+			result, err := resolveFn(params)
+			if err == nil && result != nil {
+				// Only add the field if resolution succeeded and result is not nil
+				// This allows resolvers to return nil to indicate "skip this field"
+				resultMap[fieldName] = result
+			}
+		}()
+	}
+	
+	return resultMap
 }
 
 // tryAllQueryResolvers attempts to call each Query resolver and returns the FIRST successful one

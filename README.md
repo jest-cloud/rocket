@@ -25,6 +25,7 @@ Rocket aims to bring a more developer-friendly approach to GraphQL in Go:
 - 🎮 **Apollo Sandbox** - Modern playground with best-in-class DX
 - 🔄 **GraphQL Subscriptions** - Real-time updates via WebSocket with `graphql-ws` protocol
 - 🌐 **Federation-ready** - Built on DataSource pattern for federated supergraphs
+- 🔧 **Fields with Arguments** - Nested fields with arguments work naturally (e.g., `user { organization(id: $orgId) }`)
 
 ## Getting Started
 

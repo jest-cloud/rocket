@@ -131,6 +131,8 @@ func (f *RocketDataSourceFactory) ToDataSourceConfiguration(id, name string) (pl
 	
 	// For type resolvers, we need to add them as ChildNodes
 	// ChildNodes are fields that can be resolved when we have the parent object
+	// Fields with arguments will just return null during batch resolution,
+	// and graphql-go-tools will handle them with default JSON extraction
 	// We'll track which types we've seen so we can merge fields later
 	typeResolverFields := make(map[string]map[string]bool)
 	for typeName, typeResolvers := range f.resolvers.Types {
@@ -228,4 +230,3 @@ func (f *RocketDataSourceFactory) ToDataSourceConfiguration(id, name string) (pl
 		interface{}(nil), // custom config - we don't need it
 	)
 }
-

@@ -2,9 +2,11 @@ package rocket
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	httphandler "net/http"
 	"os"
+	"reflect"
 	"strings"
 
 	"github.com/jensneuse/abstractlogger"
@@ -96,6 +98,56 @@ func BuildSchema(config Config, modules ...ModuleResolvers) (*Schema, error) {
 
 // executeMutationDirectly executes a mutation without using the DataSource/Planner
 // This is a workaround for mutations with variables where the Input template doesn't evaluate
+
+// executeQueryDirectly executes a query by calling resolvers directly
+func (s *Schema) executeQueryDirectly(ctx context.Context, queryDoc *ast.Document, variables map[string]interface{}, requestedFields []string) *Result {
+	// Execute each requested field
+	result := make(map[string]interface{})
+	
+	for _, fieldName := range requestedFields {
+		// Get the query resolver
+		resolver, found := s.resolvers.GetQueryResolver(fieldName)
+		if !found {
+			return &Result{
+				Errors: []Error{{
+					Message: fmt.Sprintf("No resolver found for query: %s", fieldName),
+				}},
+			}
+		}
+		
+		// Extract arguments for this field from the query
+		args := s.extractFieldArguments(queryDoc, "Query", fieldName, variables)
+		
+		// Call the resolver
+		params := ResolveParams{
+			Source:  nil,
+			Args:    args,
+			Context: ctx,
+			Info: ResolveInfo{
+				FieldName:  fieldName,
+				ParentType: "Query",
+			},
+		}
+		
+		fieldResult, err := resolver(params)
+		if err != nil {
+			return &Result{
+				Errors: []Error{{
+					Message: fmt.Sprintf("Error resolving %s: %v", fieldName, err),
+				}},
+			}
+		}
+		
+		// Resolve nested fields using the same approach as mutations
+		selectionSet := extractSelectionSetForField(queryDoc, fieldName)
+		fieldResult = s.resolveNestedFieldsSimple(ctx, queryDoc, fieldResult, selectionSet, variables)
+		
+		result[fieldName] = fieldResult
+	}
+	
+	return &Result{Data: result}
+}
+
 func (s *Schema) executeMutationDirectly(ctx context.Context, queryDoc *ast.Document, variables map[string]interface{}, requestedFields []string) *Result {
 	if len(requestedFields) == 0 {
 		return &Result{
@@ -153,6 +205,77 @@ func (s *Schema) executeMutationDirectly(ctx context.Context, queryDoc *ast.Docu
 	}
 }
 
+// extractFieldArguments extracts arguments for a specific field from the query AST
+func (s *Schema) extractFieldArguments(queryDoc *ast.Document, parentType string, fieldName string, variables map[string]interface{}) map[string]interface{} {
+	if len(queryDoc.OperationDefinitions) == 0 {
+		return map[string]interface{}{}
+	}
+	
+	opDef := queryDoc.OperationDefinitions[0]
+	if opDef.SelectionSet < 0 || opDef.SelectionSet >= len(queryDoc.SelectionSets) {
+		return map[string]interface{}{}
+	}
+	
+	selectionSet := queryDoc.SelectionSets[opDef.SelectionSet]
+	for _, selRef := range selectionSet.SelectionRefs {
+		if selRef < 0 || selRef >= len(queryDoc.Selections) {
+			continue
+		}
+		selection := queryDoc.Selections[selRef]
+		if selection.Kind == ast.SelectionKindField {
+			fieldRef := selection.Ref
+			if fieldRef >= 0 && fieldRef < len(queryDoc.Fields) {
+				if queryDoc.FieldNameString(fieldRef) == fieldName {
+					// Found the field, extract its arguments
+					field := queryDoc.Fields[fieldRef]
+					args := make(map[string]interface{})
+					
+					if field.HasArguments {
+						for _, argRef := range field.Arguments.Refs {
+							arg := queryDoc.Arguments[argRef]
+							argName := queryDoc.ArgumentNameString(argRef)
+							
+							// Get the argument value
+							if arg.Value.Kind == ast.ValueKindVariable {
+								// It's a variable reference - look it up
+								varName := queryDoc.VariableValueNameString(arg.Value.Ref)
+								if val, ok := variables[varName]; ok {
+									args[argName] = val
+								}
+							} else {
+								// It's a literal value
+								args[argName] = extractLiteralValue(queryDoc, arg.Value)
+							}
+						}
+					}
+					
+					return args
+				}
+			}
+		}
+	}
+	
+	return map[string]interface{}{}
+}
+
+// extractLiteralValue extracts a literal value from an AST Value
+func extractLiteralValue(doc *ast.Document, value ast.Value) interface{} {
+	switch value.Kind {
+	case ast.ValueKindString:
+		return doc.StringValueContentString(value.Ref)
+	case ast.ValueKindInteger:
+		return doc.IntValueAsInt(value.Ref)
+	case ast.ValueKindFloat:
+		return doc.FloatValueAsFloat32(value.Ref)
+	case ast.ValueKindBoolean:
+		return doc.BooleanValue(value.Ref)
+	case ast.ValueKindNull:
+		return nil
+	default:
+		return nil
+	}
+}
+
 // extractSelectionSetForField extracts the selection set for a specific field from the query
 func extractSelectionSetForField(queryDoc *ast.Document, fieldName string) []string {
 	if len(queryDoc.OperationDefinitions) == 0 {
@@ -206,6 +329,243 @@ func extractSelectionSetForField(queryDoc *ast.Document, fieldName string) []str
 }
 
 // resolveNestedFields resolves nested fields in a result object
+// resolveNestedFieldsWithArguments resolves nested fields including those with arguments
+func (s *Schema) resolveNestedFieldsWithArguments(ctx context.Context, queryDoc *ast.Document, source interface{}, parentFieldName string, variables map[string]interface{}) interface{} {
+	if source == nil {
+		return source
+	}
+	
+	// Get the type name of the source
+	typeName := getTypeName(source)
+	if typeName == "" {
+		return source
+	}
+	
+	// Find the selection set for the parent field
+	selectionSet := s.getSelectionSetForField(queryDoc, parentFieldName)
+	if selectionSet == nil {
+		return source
+	}
+	
+	// Convert source to map for manipulation
+	resultMap := sourceToMap(source)
+	if resultMap == nil {
+		return source
+	}
+	
+	// Resolve each field in the selection set
+	for _, selRef := range selectionSet.SelectionRefs {
+		if selRef < 0 || selRef >= len(queryDoc.Selections) {
+			continue
+		}
+		selection := queryDoc.Selections[selRef]
+		if selection.Kind != ast.SelectionKindField {
+			continue
+		}
+		
+		fieldRef := selection.Ref
+		if fieldRef < 0 || fieldRef >= len(queryDoc.Fields) {
+			continue
+		}
+		
+		field := queryDoc.Fields[fieldRef]
+		fieldName := queryDoc.FieldNameString(fieldRef)
+		
+		// Check if this field has a custom resolver
+		if typeResolver, found := s.resolvers.GetTypeResolver(typeName, fieldName); found {
+			// Extract arguments if any
+			args := make(map[string]interface{})
+			if field.HasArguments {
+				for _, argRef := range field.Arguments.Refs {
+					arg := queryDoc.Arguments[argRef]
+					argName := queryDoc.ArgumentNameString(argRef)
+					
+					if arg.Value.Kind == ast.ValueKindVariable {
+						varName := queryDoc.VariableValueNameString(arg.Value.Ref)
+						if val, ok := variables[varName]; ok {
+							args[argName] = val
+						}
+					} else {
+						args[argName] = extractLiteralValue(queryDoc, arg.Value)
+					}
+				}
+			}
+			
+			// Call the type resolver
+			params := ResolveParams{
+				Source:  source,
+				Args:    args,
+				Context: ctx,
+				Info: ResolveInfo{
+					FieldName:  fieldName,
+					ParentType: typeName,
+				},
+			}
+			
+			result, err := typeResolver(params)
+			if err == nil {
+				resultMap[fieldName] = result
+			}
+		}
+	}
+	
+	return resultMap
+}
+
+// getSelectionSetForField gets the selection set for a specific field
+func (s *Schema) getSelectionSetForField(queryDoc *ast.Document, fieldName string) *ast.SelectionSet {
+	if len(queryDoc.OperationDefinitions) == 0 {
+		return nil
+	}
+	
+	opDef := queryDoc.OperationDefinitions[0]
+	if opDef.SelectionSet < 0 || opDef.SelectionSet >= len(queryDoc.SelectionSets) {
+		return nil
+	}
+	
+	selectionSet := queryDoc.SelectionSets[opDef.SelectionSet]
+	for _, selRef := range selectionSet.SelectionRefs {
+		if selRef < 0 || selRef >= len(queryDoc.Selections) {
+			continue
+		}
+		selection := queryDoc.Selections[selRef]
+		if selection.Kind == ast.SelectionKindField {
+			fieldRef := selection.Ref
+			if fieldRef >= 0 && fieldRef < len(queryDoc.Fields) {
+				if queryDoc.FieldNameString(fieldRef) == fieldName {
+					field := queryDoc.Fields[fieldRef]
+					if field.SelectionSet >= 0 && field.SelectionSet < len(queryDoc.SelectionSets) {
+						return &queryDoc.SelectionSets[field.SelectionSet]
+					}
+				}
+			}
+		}
+	}
+	
+	return nil
+}
+
+// getTypeName extracts the type name from a source object
+func getTypeName(source interface{}) string {
+	if source == nil {
+		return ""
+	}
+	
+	// Try to get type from struct
+	v := reflect.ValueOf(source)
+	if v.Kind() == reflect.Ptr {
+		if v.IsNil() {
+			return ""
+		}
+		v = v.Elem()
+	}
+	
+	if v.Kind() == reflect.Struct {
+		return v.Type().Name()
+	}
+	
+	// Try to get from map
+	if m, ok := source.(map[string]interface{}); ok {
+		if typename, ok := m["__typename"].(string); ok {
+			return typename
+		}
+	}
+	
+	return ""
+}
+
+// sourceToMap converts a source object to a map
+func sourceToMap(source interface{}) map[string]interface{} {
+	if m, ok := source.(map[string]interface{}); ok {
+		return m
+	}
+	
+	// Marshal and unmarshal to convert struct to map
+	bytes, err := json.Marshal(source)
+	if err != nil {
+		return nil
+	}
+	
+	var result map[string]interface{}
+	if err := json.Unmarshal(bytes, &result); err != nil {
+		return nil
+	}
+	
+	return result
+}
+
+// resolveNestedFieldsSimple resolves nested fields including those with arguments
+func (s *Schema) resolveNestedFieldsSimple(ctx context.Context, queryDoc *ast.Document, source interface{}, selectionSet []string, variables map[string]interface{}) interface{} {
+	if source == nil {
+		return source
+	}
+	
+	// Get type name
+	typeName := getTypeName(source)
+	if typeName == "" {
+		return source
+	}
+	
+	// Convert to map
+	resultMap := sourceToMap(source)
+	if resultMap == nil {
+		return source
+	}
+	
+	// For each field in selection set, check if there's a custom resolver
+	for _, fieldName := range selectionSet {
+		if typeResolver, found := s.resolvers.GetTypeResolver(typeName, fieldName); found {
+			// Extract arguments from queryDoc for this field
+			args := s.extractNestedFieldArguments(queryDoc, typeName, fieldName, variables)
+			
+			params := ResolveParams{
+				Source:  source,
+				Args:    args,
+				Context: ctx,
+				Info: ResolveInfo{
+					FieldName:  fieldName,
+					ParentType: typeName,
+				},
+			}
+			
+			result, err := typeResolver(params)
+			if err == nil {
+				resultMap[fieldName] = result
+			}
+		}
+	}
+	
+	return resultMap
+}
+
+// extractNestedFieldArguments extracts arguments for a nested field from the query
+func (s *Schema) extractNestedFieldArguments(queryDoc *ast.Document, parentType string, fieldName string, variables map[string]interface{}) map[string]interface{} {
+	// This is simplified - in reality would need to traverse to find the exact field
+	// For now, just scan all fields in the query
+	for i := 0; i < len(queryDoc.Fields); i++ {
+		if queryDoc.FieldNameString(i) == fieldName {
+			field := queryDoc.Fields[i]
+			args := make(map[string]interface{})
+			if field.HasArguments {
+				for _, argRef := range field.Arguments.Refs {
+					arg := queryDoc.Arguments[argRef]
+					argName := queryDoc.ArgumentNameString(argRef)
+					if arg.Value.Kind == ast.ValueKindVariable {
+						varName := queryDoc.VariableValueNameString(arg.Value.Ref)
+						if val, ok := variables[varName]; ok {
+							args[argName] = val
+						}
+					} else {
+						args[argName] = extractLiteralValue(queryDoc, arg.Value)
+					}
+				}
+			}
+			return args
+		}
+	}
+	return map[string]interface{}{}
+}
+
 func (s *Schema) resolveNestedFields(ctx context.Context, source interface{}, fields []string) interface{} {
 	if source == nil || len(fields) == 0 {
 		return source
@@ -368,6 +728,10 @@ func (s *Schema) Execute(ctx context.Context, query string, variables map[string
 	if operationType == ast.OperationTypeMutation {
 		return s.executeMutationDirectly(ctx, &queryDoc, variables, requestedFields)
 	}
+	
+	// For now, always use direct execution for queries
+	// The DataSource/Input template approach has limitations with nested resolvers
+	return s.executeQueryDirectly(ctx, &queryDoc, variables, requestedFields)
 	
 	// Create a fresh planner for this query with knowledge of requested fields and operation type
 	planner, err := buildExecutionPlanWithFields(s.schemaDoc, s.resolvers, requestedFields, operationType)

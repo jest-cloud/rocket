@@ -198,12 +198,11 @@ func (p *RocketPlanner) Register(visitor *plan.Visitor, configuration plan.DataS
 	return nil
 }
 
-// generateInputTemplate creates an Input template that extracts field arguments
-// For a field like createUser(input: CreateUserInput!), it generates:
-// {"arguments": {"input": {{.arguments.input}}}, "source": {{.object}}}
-func (p *RocketPlanner) generateInputTemplate(targetField *fieldCoordinate) string {
+// generateInputTemplateAndVariables creates an Input template and Variables configuration
+// that extracts field arguments from the query
+func (p *RocketPlanner) generateInputTemplateAndVariables(targetField *fieldCoordinate) (string, resolve.Variables) {
 	if targetField == nil || p.factory.schema == nil {
-		return `{}`
+		return `{}`, nil
 	}
 	
 	// Find the field definition in the schema
@@ -228,21 +227,30 @@ func (p *RocketPlanner) generateInputTemplate(targetField *fieldCoordinate) stri
 	
 	if fieldDef == nil || !fieldDef.HasArgumentsDefinitions {
 		// No arguments, return empty object
-		return `{}`
+		return `{}`, nil
 	}
 	
-	// Build template with arguments
+	// Build template with arguments and create Variables
 	var argTemplates []string
+	var variables resolve.Variables
+	
 	for _, argRef := range fieldDef.ArgumentsDefinition.Refs {
 		argName := p.factory.schema.InputValueDefinitionNameString(argRef)
-		argTemplates = append(argTemplates, fmt.Sprintf(`"%s": {{.arguments.%s}}`, argName, argName))
+		// Add to template
+		argTemplates = append(argTemplates, fmt.Sprintf(`"%s": $.arguments.%s`, argName, argName))
+		// Add variable configuration
+		variables = append(variables, &resolve.ContextVariable{
+			Path:     []string{"arguments", argName},
+			Renderer: resolve.NewJSONVariableRenderer(),
+		})
 	}
 	
 	if len(argTemplates) == 0 {
-		return `{}`
+		return `{}`, nil
 	}
 	
-	return fmt.Sprintf(`{"arguments": {%s}, "source": {{.object}}}`, strings.Join(argTemplates, ", "))
+	template := fmt.Sprintf(`{"arguments": {%s}, "source": {}}`, strings.Join(argTemplates, ", "))
+	return template, variables
 }
 
 func (p *RocketPlanner) ConfigureFetch() resolve.FetchConfiguration {
@@ -278,12 +286,13 @@ func (p *RocketPlanner) ConfigureFetch() resolve.FetchConfiguration {
 		parentPath: p.plannerConfig.ParentPath,
 	}
 
-	// Generate Input template based on field arguments in the schema
+	// Generate Input template and variables based on field arguments in the schema
 	// This extracts arguments from the query and passes them to Load()
-	inputTemplate := p.generateInputTemplate(targetField)
+	inputTemplate, variables := p.generateInputTemplateAndVariables(targetField)
 	
 	return resolve.FetchConfiguration{
 		Input:      inputTemplate,
+		Variables:  variables,
 		DataSource: rocketSource,
 		PostProcessing: resolve.PostProcessingConfiguration{
 			SelectResponseDataPath: []string{},
