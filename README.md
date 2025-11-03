@@ -44,7 +44,7 @@ go get github.com/jest-cloud/rocket@latest
 Or specify a version:
 
 ```bash
-go get github.com/jest-cloud/rocket@v0.4.0
+go get github.com/jest-cloud/rocket@v0.5.0
 ```
 
 ### Create a Simple GraphQL API

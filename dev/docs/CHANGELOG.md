@@ -4,6 +4,34 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.5.0] - 2025-11-03
+
+### Added
+- **🌐 GraphQL Federation Support** - Full Apollo Federation implementation
+  - `FederationConfig` to enable federation per-schema
+  - Federation directives (`@key`, `@extends`, `@external`, `@requires`, `@provides`)
+  - `EntityResolveFn` type for entity resolution
+  - `_service` query (returns subgraph SDL)
+  - `_entities` query handler
+  - Auto-injection of federation schema
+  - Compatible with Apollo Gateway and Cosmo Router
+- Updated `ModuleResolvers` interface to include `EntityResolvers()`
+- Comprehensive federation tests (5 tests, all passing)
+
+### Changed
+- **Breaking**: `ModuleResolvers` interface now requires `EntityResolvers()` method
+  - Migration: Add `func (r *Resolvers) EntityResolvers() map[string]rocket.EntityResolveFn { return map[string]rocket.EntityResolveFn{} }`
+
+### Documentation
+- Added `FEDERATION_IMPLEMENTATION.md` - Technical implementation guide
+- Added `FEDERATION_ROADMAP.md` - Strategic overview and timeline
+- Federation test schema and examples
+
+### Status
+- ✅ Core federation implementation complete
+- ⏳ Full `_entities` query integration with graphql-go-tools planner (in progress)
+- ⏳ Complete federation example with 2+ subgraphs (coming soon)
+
 ## [0.4.0] - 2025-11-03
 
 ### Added
