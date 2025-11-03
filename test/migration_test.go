@@ -1,27 +1,29 @@
-package rocket
+package rocket_test
 
 import (
 	"context"
 	"encoding/json"
 	"os"
 	"testing"
+
+	"github.com/jest-cloud/rocket"
 )
 
-// testResolver implements ModuleResolvers for testing
+// testResolver implements rocket.ModuleResolvers for testing
 type testResolver struct {
-	queries map[string]FieldResolveFn
+	queries map[string]rocket.FieldResolveFn
 }
 
-func (r *testResolver) QueryResolvers() map[string]FieldResolveFn {
+func (r *testResolver) QueryResolvers() map[string]rocket.FieldResolveFn {
 	return r.queries
 }
 
-func (r *testResolver) MutationResolvers() map[string]FieldResolveFn {
-	return map[string]FieldResolveFn{}
+func (r *testResolver) MutationResolvers() map[string]rocket.FieldResolveFn {
+	return map[string]rocket.FieldResolveFn{}
 }
 
-func (r *testResolver) TypeResolvers() map[string]map[string]FieldResolveFn {
-	return map[string]map[string]FieldResolveFn{}
+func (r *testResolver) TypeResolvers() map[string]map[string]rocket.FieldResolveFn {
+	return map[string]map[string]rocket.FieldResolveFn{}
 }
 
 // TestSimpleQuery tests a basic query with the new graphql-go-tools implementation
@@ -62,26 +64,26 @@ type User {
 	}
 
 	// Create resolver implementations
-	queryResolvers := map[string]FieldResolveFn{
-		"hello": func(p ResolveParams) (interface{}, error) {
+	queryResolvers := map[string]rocket.FieldResolveFn{
+		"hello": func(p rocket.ResolveParams) (interface{}, error) {
 			return "Hello, Rocket! 🚀", nil
 		},
-		"users": func(p ResolveParams) (interface{}, error) {
+		"users": func(p rocket.ResolveParams) (interface{}, error) {
 			return []*User{
 				{ID: "1", Name: "Alice", Email: "alice@example.com"},
 				{ID: "2", Name: "Bob", Email: "bob@example.com"},
 			}, nil
 		},
-		"user": func(p ResolveParams) (interface{}, error) {
+		"user": func(p rocket.ResolveParams) (interface{}, error) {
 			return &User{ID: "1", Name: "Alice", Email: "alice@example.com"}, nil
 		},
 	}
 
-	// Create a resolver that implements ModuleResolvers
+	// Create a resolver that implements rocket.ModuleResolvers
 	resolver := &testResolver{queries: queryResolvers}
 
 	// Build schema
-	schema, err := BuildSchema(Config{
+	schema, err := rocket.BuildSchema(rocket.Config{
 		SchemaPath: tmpfile.Name(),
 	}, resolver)
 	if err != nil {

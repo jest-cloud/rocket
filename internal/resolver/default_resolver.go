@@ -1,25 +1,22 @@
-package rocket
+package resolver
 
 import (
-	"fmt"
-	"os"
 	"reflect"
 	"strings"
 	"time"
+
+	"github.com/jest-cloud/rocket/internal/types"
 )
 
 // DefaultFieldResolver automatically resolves struct fields to GraphQL fields
 // It uses reflection to map GraphQL field names to Go struct fields
 // This provides a developer-friendly auto-resolution feature
-func DefaultFieldResolver(p ResolveParams) (interface{}, error) {
+func DefaultFieldResolver(p types.ResolveParams) (interface{}, error) {
 	if p.Source == nil {
 		return nil, nil
 	}
 
 	fieldName := p.Info.FieldName
-	
-	// Debug: Log Source type for investigation (force flush to stderr)
-	fmt.Fprintf(os.Stderr, "[DEBUG] DefaultFieldResolver: fieldName=%s, ParentType=%s, Source type=%T\n", fieldName, p.Info.ParentType, p.Source)
 
 	// Handle map[string]interface{} (e.g., from JSON unmarshaling or graphql-go conversions)
 	if m, ok := p.Source.(map[string]interface{}); ok {
@@ -79,26 +76,41 @@ func DefaultFieldResolver(p ResolveParams) (interface{}, error) {
 		return nil, nil
 	}
 
-	// Try to find the field
+	// Try to find the field (recommendation: check struct field first)
 	field := findField(sourceValue, fieldName)
-	if !field.IsValid() {
+	if field.IsValid() {
+		value := field.Interface()
+		
+		// Handle special types
+		switch v := value.(type) {
+		case time.Time:
+			return v.Format(time.RFC3339), nil
+		case *time.Time:
+			if v == nil {
+				return nil, nil
+			}
+			return v.Format(time.RFC3339), nil
+		}
+		
+		return value, nil
+	}
+	
+	// Recommendation: If no field found, check for struct method
+	methodValue := findMethod(sourceValue, fieldName)
+	if methodValue.IsValid() {
+		// Call the method with no arguments (or with context if available)
+		result := methodValue.Call([]reflect.Value{})
+		if len(result) > 0 {
+			if !result[0].IsNil() {
+				return result[0].Interface(), nil
+			}
+		}
 		return nil, nil
 	}
 
-	value := field.Interface()
-
-	// Handle special types
-	switch v := value.(type) {
-	case time.Time:
-		return v.Format(time.RFC3339), nil
-	case *time.Time:
-		if v == nil {
-			return nil, nil
-		}
-		return v.Format(time.RFC3339), nil
-	}
-
-	return value, nil
+	// Recommendation: Neither field nor method found - return nil
+	// Schema-aware resolution will handle nullability based on schema
+	return nil, nil
 }
 
 // findField finds a struct field by GraphQL field name
@@ -173,5 +185,23 @@ func toPascalCase(s string) string {
 	
 	// Standard camelCase to PascalCase
 	return strings.ToUpper(s[:1]) + s[1:]
+}
+
+// findMethod finds a struct method by GraphQL field name
+// Handles camelCase -> PascalCase conversion
+// Recommendation: Check for struct methods as fallback when fields aren't found
+func findMethod(structValue reflect.Value, fieldName string) reflect.Value {
+	// Try exact match with PascalCase (GraphQL: name -> Go: Name())
+	pascalName := toPascalCase(fieldName)
+	method := structValue.MethodByName(pascalName)
+	if method.IsValid() && method.Type().NumIn() <= 1 {
+		// Method should take 0 or 1 argument (context)
+		// And return at least one value
+		if method.Type().NumOut() >= 1 {
+			return method
+		}
+	}
+	
+	return reflect.Value{}
 }
 

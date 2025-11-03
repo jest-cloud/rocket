@@ -229,6 +229,22 @@ That's it! You now have a working GraphQL API powered by Rocket. 🎉
 - 🏗️ Explore [Module Architecture](#architecture) patterns
 - 🔧 Check out the [TODO](#todo) list for upcoming features
 
+## Documentation
+
+- **[Usage Guide](dev/docs/USAGE.md)** - Comprehensive guide on using Rocket
+- **[Playgrounds](dev/docs/PLAYGROUNDS.md)** - GraphQL playground options and configuration
+- **[CHANGELOG](dev/docs/CHANGELOG.md)** - Release history and changes
+- **[ROCKET_LAUNCH](dev/docs/ROCKET_LAUNCH.md)** - Project launch documentation
+- **[Architecture Decision](dev/docs/ARCHITECTURE_DECISION.md)** - Architecture decisions and rationale
+- **[Recommendations](dev/docs/RECOMMENDATIONS.md)** - Design recommendations and patterns
+- **[Migration Notes](dev/docs/MIGRATION_NOTES.md)** - Migration from other GraphQL libraries
+- **[Migration Plan](dev/docs/MIGRATION_PLAN.md)** - Detailed migration plan
+- **[Migration Decision](dev/docs/MIGRATION_DECISION.md)** - Migration decision documentation
+- **[Research Notes](dev/docs/RESEARCH_NOTES.md)** - Research and investigation notes
+- **[Research Summary](dev/docs/RESEARCH_SUMMARY.md)** - Summary of research findings
+- **[Bug Report Summary](dev/docs/BUG_REPORT_SUMMARY.md)** - Known bugs and issues
+- **[Issue Template](dev/docs/ISSUE_TEMPLATE.md)** - Template for reporting issues
+
 ## Quick Start
 
 ### 1. Define Your Schema

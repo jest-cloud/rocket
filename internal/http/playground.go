@@ -1,4 +1,4 @@
-package rocket
+package http
 
 import (
 	"html/template"

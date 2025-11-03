@@ -3,36 +3,25 @@
 package rocket
 
 import (
-	"context"
+	"github.com/jest-cloud/rocket/internal/registry"
+	"github.com/jest-cloud/rocket/internal/types"
 )
 
 // ResolveParams contains all the information for resolving a field
-type ResolveParams struct {
-	Source  interface{}
-	Args    map[string]interface{}
-	Context context.Context
-	Info    ResolveInfo
-}
+// Re-exported from internal/types for public API
+type ResolveParams = types.ResolveParams
 
 // ResolveInfo contains metadata about the field being resolved
-type ResolveInfo struct {
-	FieldName      string
-	Path           []string
-	ParentType     string
-	ReturnType     string
-	SelectionSet   interface{} // Will be wundergraph AST selection set
-}
+// Re-exported from internal/types for public API
+type ResolveInfo = types.ResolveInfo
 
 // FieldResolveFn is a function that resolves a field value
-type FieldResolveFn func(p ResolveParams) (interface{}, error)
+// Re-exported from internal/types for public API
+type FieldResolveFn = types.FieldResolveFn
 
 // ModuleResolvers is the interface that all module resolvers must implement
-// This provides a clean, modular approach to organizing resolvers
-type ModuleResolvers interface {
-	QueryResolvers() map[string]FieldResolveFn
-	MutationResolvers() map[string]FieldResolveFn
-	TypeResolvers() map[string]map[string]FieldResolveFn
-}
+// Re-exported from internal/types for public API
+type ModuleResolvers = types.ModuleResolvers
 
 // Config holds configuration for building a GraphQL schema
 type Config struct {
@@ -44,4 +33,12 @@ type Config struct {
 const (
 	DefaultPreserveOrder = true
 )
+
+// ResolverRegistry holds all resolvers stitched together
+// Re-exported from internal/registry for public API
+type ResolverRegistry = registry.ResolverRegistry
+
+// NewResolverRegistry creates a new registry by merging module resolvers
+// Re-exported from internal/registry for public API
+var NewResolverRegistry = registry.NewResolverRegistry
 

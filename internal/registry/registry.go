@@ -1,11 +1,15 @@
-package rocket
+package registry
+
+import (
+	"github.com/jest-cloud/rocket/internal/types"
+)
 
 // ResolverRegistry holds all resolvers stitched together
 // Combines resolvers from different modules in a clean, modular way
 type ResolverRegistry struct {
-	Query    map[string]FieldResolveFn
-	Mutation map[string]FieldResolveFn
-	Types    map[string]map[string]FieldResolveFn
+	Query    map[string]types.FieldResolveFn
+	Mutation map[string]types.FieldResolveFn
+	Types    map[string]map[string]types.FieldResolveFn
 }
 
 // NewResolverRegistry creates a new registry by merging module resolvers
@@ -14,11 +18,11 @@ type ResolverRegistry struct {
 //     Query: { ...userQueries, ...orgQueries },
 //     Mutation: { ...userMutations, ...orgMutations }
 //   }
-func NewResolverRegistry(modules ...ModuleResolvers) *ResolverRegistry {
+func NewResolverRegistry(modules ...types.ModuleResolvers) *ResolverRegistry {
 	registry := &ResolverRegistry{
-		Query:    make(map[string]FieldResolveFn),
-		Mutation: make(map[string]FieldResolveFn),
-		Types:    make(map[string]map[string]FieldResolveFn),
+		Query:    make(map[string]types.FieldResolveFn),
+		Mutation: make(map[string]types.FieldResolveFn),
+		Types:    make(map[string]map[string]types.FieldResolveFn),
 	}
 
 	// Merge all module resolvers
@@ -43,19 +47,19 @@ func NewResolverRegistry(modules ...ModuleResolvers) *ResolverRegistry {
 }
 
 // GetQueryResolver returns a query resolver by name
-func (r *ResolverRegistry) GetQueryResolver(name string) (FieldResolveFn, bool) {
+func (r *ResolverRegistry) GetQueryResolver(name string) (types.FieldResolveFn, bool) {
 	resolver, ok := r.Query[name]
 	return resolver, ok
 }
 
 // GetMutationResolver returns a mutation resolver by name
-func (r *ResolverRegistry) GetMutationResolver(name string) (FieldResolveFn, bool) {
+func (r *ResolverRegistry) GetMutationResolver(name string) (types.FieldResolveFn, bool) {
 	resolver, ok := r.Mutation[name]
 	return resolver, ok
 }
 
 // GetTypeResolver returns a type's field resolver
-func (r *ResolverRegistry) GetTypeResolver(typeName, fieldName string) (FieldResolveFn, bool) {
+func (r *ResolverRegistry) GetTypeResolver(typeName, fieldName string) (types.FieldResolveFn, bool) {
 	if typeResolvers, ok := r.Types[typeName]; ok {
 		if resolver, ok := typeResolvers[fieldName]; ok {
 			return resolver, true
