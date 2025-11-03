@@ -4,10 +4,42 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.3.0] - 2025-11-03
+
+### Added
+- **🚀 GraphQL Subscriptions** - Full WebSocket support with `graphql-ws` protocol
+  - `SubscriptionResolveFn` type for channel-based resolvers
+  - `WebSocketHandler()` for real-time subscriptions
+  - `ExecuteSubscription()` method on Schema
+  - Context cancellation support
+  - Complete example with chat, countdown, and status updates
+- Updated `ModuleResolvers` interface to include `SubscriptionResolvers()`
+- Comprehensive subscription tests (4 new tests, all passing)
+
+### Changed
+- **Breaking**: `ModuleResolvers` interface now requires `SubscriptionResolvers()` method
+- Migrated to `wundergraph/graphql-go-tools/v2` exclusively (removed all other GraphQL deps)
+- Hybrid execution strategy: queries use DataSource pattern, mutations execute directly
+- Improved parser quirk handling for scalar fields with arguments
+
+### Fixed
+- Fixed mutation execution with variables (Input template evaluation)
+- Fixed nested field resolution in subscription payloads
+- Fixed parser quirk where scalar fields with args appeared to have selection sets
+
+### Documentation
+- Added comprehensive subscriptions documentation
+- Removed outdated migration and research docs
+- Cleaned up all references to old GraphQL libraries
+
+## [0.2.0] - 2024-11-02
+
 ### Added
 - GraphQL Playground support via `PlaygroundHandler`
 - Introspection query support (`__schema`, `__type`, `__typename`)
 - Auto-skipping of reserved `__` fields in schema builder
+- Mutation support with direct execution
+- Complete migration to `wundergraph/graphql-go-tools/v2`
 
 ### Fixed
 - Fixed introspection error where reserved `__` fields were being manually added
