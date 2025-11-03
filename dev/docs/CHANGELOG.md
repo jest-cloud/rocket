@@ -4,11 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.4.0] - 2025-11-03
+
 ### Added
 - **🎯 Apollo-style Context Builder** - `ContextBuilder` config option for per-request context building
   - Similar to Apollo GraphQL's `context` function
   - Alternative to middleware pattern
   - Available in `Config.ContextBuilder`
+  - Full TypeScript/Apollo pattern compatibility
 - Complete context documentation with both patterns (middleware vs Apollo-style)
 - Context example with working code for both approaches
 - Comprehensive resolver documentation covering all operation types
@@ -16,8 +19,12 @@ All notable changes to this project will be documented in this file.
 ### Documentation
 - Added `CONTEXT.md` - Complete guide for authentication and context patterns
 - Added `RESOLVERS.md` - Complete resolver guide (queries, mutations, subscriptions, types)
+- Added `QUERIES.md` - Comprehensive query patterns and best practices
+- Added `MUTATIONS.md` - Complete mutation guide with transactions
+- Added `FEDERATION.md` - Federation readiness and integration guide
 - Updated all examples to demonstrate both context patterns
 - Reorganized README documentation into clear categories
+- Improved context access documentation in resolvers
 
 ## [0.3.0] - 2025-11-03
 
