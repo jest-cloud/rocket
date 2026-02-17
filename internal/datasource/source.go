@@ -325,6 +325,9 @@ func (s *RocketSource) resolveNestedFieldsWithResolvers(ctx context.Context, sou
 		return source
 	}
 	
+	// Auto-inject __typename for federation compatibility
+	resultMap["__typename"] = typeName
+
 	// Now resolve each field that has an explicit resolver
 	for fieldName, resolveFn := range typeResolvers {
 		

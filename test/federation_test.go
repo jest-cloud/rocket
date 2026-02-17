@@ -2,6 +2,8 @@ package rocket_test
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/jest-cloud/rocket"
@@ -213,5 +215,163 @@ func TestFederationDirectives(t *testing.T) {
 
 	// Just verify schema builds successfully with @key directives
 	t.Log("✓ Federation directives parsed successfully")
+}
+
+// TestTypenameAutoInjection verifies that __typename is automatically injected
+// into responses when the resolver returns a map with __typename set
+func TestTypenameAutoInjection(t *testing.T) {
+	schemaSDL := `
+type Query {
+  user(id: ID!): User
+}
+
+type User {
+  id: ID!
+  name: String!
+}
+`
+	tmpDir := t.TempDir()
+	schemaPath := filepath.Join(tmpDir, "schema.graphql")
+	if err := os.WriteFile(schemaPath, []byte(schemaSDL), 0644); err != nil {
+		t.Fatalf("Failed to write schema: %v", err)
+	}
+
+	// Resolver returns a map with __typename — verifies it flows through to response
+	resolver := &simpleResolver{
+		queryResolvers: map[string]rocket.FieldResolveFn{
+			"user": func(p rocket.ResolveParams) (interface{}, error) {
+				return map[string]interface{}{
+					"__typename": "User",
+					"id":         "1",
+					"name":       "Alice",
+				}, nil
+			},
+		},
+	}
+
+	schema, err := rocket.BuildSchema(
+		rocket.Config{SchemaPath: schemaPath},
+		resolver,
+	)
+	if err != nil {
+		t.Fatalf("Failed to build schema: %v", err)
+	}
+
+	query := `{ user(id: "1") { id name __typename } }`
+	result := schema.Execute(context.Background(), query, nil, "")
+
+	if len(result.Errors) > 0 {
+		t.Fatalf("Query returned errors: %v", result.Errors)
+	}
+
+	dataMap, ok := result.Data.(map[string]interface{})
+	if !ok {
+		t.Fatalf("Expected data to be map, got %T", result.Data)
+	}
+
+	userMap, ok := dataMap["user"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("Expected user to be map, got %T", dataMap["user"])
+	}
+
+	typename, ok := userMap["__typename"].(string)
+	if !ok {
+		t.Fatal("__typename not found in response - auto-injection failed")
+	}
+
+	if typename != "User" {
+		t.Fatalf("Expected __typename to be 'User', got '%s'", typename)
+	}
+
+	t.Logf("✓ __typename present in response: %s", typename)
+}
+
+// TestTypenameAutoInjectionWithStruct verifies __typename injection for struct-based resolvers
+func TestTypenameAutoInjectionWithStruct(t *testing.T) {
+	schemaSDL := `
+type Query {
+  user(id: ID!): User
+}
+
+type User {
+  id: ID!
+  name: String!
+}
+`
+	tmpDir := t.TempDir()
+	schemaPath := filepath.Join(tmpDir, "schema.graphql")
+	if err := os.WriteFile(schemaPath, []byte(schemaSDL), 0644); err != nil {
+		t.Fatalf("Failed to write schema: %v", err)
+	}
+
+	// Resolver returns a struct - __typename should be derived from struct name
+	resolver := &simpleResolver{
+		queryResolvers: map[string]rocket.FieldResolveFn{
+			"user": func(p rocket.ResolveParams) (interface{}, error) {
+				return &User{ID: "1", Name: "Alice"}, nil
+			},
+		},
+	}
+
+	schema, err := rocket.BuildSchema(
+		rocket.Config{SchemaPath: schemaPath},
+		resolver,
+	)
+	if err != nil {
+		t.Fatalf("Failed to build schema: %v", err)
+	}
+
+	query := `{ user(id: "1") { id name __typename } }`
+	result := schema.Execute(context.Background(), query, nil, "")
+
+	if len(result.Errors) > 0 {
+		t.Fatalf("Query returned errors: %v", result.Errors)
+	}
+
+	dataMap, ok := result.Data.(map[string]interface{})
+	if !ok {
+		t.Fatalf("Expected data to be map, got %T", result.Data)
+	}
+
+	userMap, ok := dataMap["user"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("Expected user to be map, got %T", dataMap["user"])
+	}
+
+	typename, ok := userMap["__typename"].(string)
+	if !ok {
+		t.Fatalf("__typename not found or not a string in response")
+	}
+
+	if typename != "User" {
+		t.Fatalf("Expected __typename to be 'User', got '%s'", typename)
+	}
+
+	t.Logf("✓ __typename auto-injected as '%s' from struct name", typename)
+}
+
+// simpleResolver is a minimal ModuleResolvers implementation for testing
+type simpleResolver struct {
+	queryResolvers map[string]rocket.FieldResolveFn
+}
+
+func (r *simpleResolver) QueryResolvers() map[string]rocket.FieldResolveFn {
+	return r.queryResolvers
+}
+
+func (r *simpleResolver) MutationResolvers() map[string]rocket.FieldResolveFn {
+	return map[string]rocket.FieldResolveFn{}
+}
+
+func (r *simpleResolver) SubscriptionResolvers() map[string]rocket.SubscriptionResolveFn {
+	return map[string]rocket.SubscriptionResolveFn{}
+}
+
+func (r *simpleResolver) TypeResolvers() map[string]map[string]rocket.FieldResolveFn {
+	return map[string]map[string]rocket.FieldResolveFn{}
+}
+
+func (r *simpleResolver) EntityResolvers() map[string]rocket.EntityResolveFn {
+	return map[string]rocket.EntityResolveFn{}
 }
 

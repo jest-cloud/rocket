@@ -511,7 +511,10 @@ func (s *Schema) resolveNestedFieldsSimple(ctx context.Context, queryDoc *ast.Do
 	if resultMap == nil {
 		return source
 	}
-	
+
+	// Auto-inject __typename for federation compatibility
+	resultMap["__typename"] = typeName
+
 	// For each field in selection set, check if there's a custom resolver
 	for _, fieldName := range selectionSet {
 		if typeResolver, found := s.resolvers.GetTypeResolver(typeName, fieldName); found {
@@ -579,9 +582,13 @@ func (s *Schema) resolveNestedFields(ctx context.Context, source interface{}, fi
 				result[field] = value
 			}
 		}
+		// Auto-inject __typename for federation compatibility
+		if typeName := getTypeName(source); typeName != "" {
+			result["__typename"] = typeName
+		}
 		return result
 	}
-	
+
 	// If source is a struct, use reflection to extract fields
 	result := make(map[string]interface{})
 	for _, field := range fields {
@@ -591,13 +598,17 @@ func (s *Schema) resolveNestedFields(ctx context.Context, source interface{}, fi
 			Context: ctx,
 			Info: ResolveInfo{
 				FieldName:  field,
-				ParentType: "", // We don't know the type here
-			}	,
+				ParentType: "",
+			},
 		}
 		value, _ := resolver.DefaultFieldResolver(params)
 		result[field] = value
 	}
-	
+	// Auto-inject __typename for federation compatibility
+	if typeName := getTypeName(source); typeName != "" {
+		result["__typename"] = typeName
+	}
+
 	return result
 }
 

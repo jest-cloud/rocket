@@ -1,6 +1,7 @@
 package federation
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/jest-cloud/rocket/internal/types"
@@ -43,10 +44,42 @@ func EntitiesResolver(entityResolvers map[string]types.EntityResolveFn) types.Fi
 				return nil, fmt.Errorf("failed to resolve entity %s: %w", typename, err)
 			}
 
+			// Auto-inject __typename for federation compatibility
+			entity = injectTypename(entity, typename)
+
 			results[i] = entity
 		}
 
 		return results, nil
 	}
+}
+
+// injectTypename ensures __typename is present in an entity result.
+// If the entity is already a map, it sets __typename directly.
+// If it's a struct, it converts to a map first via JSON marshaling.
+func injectTypename(entity interface{}, typename string) interface{} {
+	if entity == nil {
+		return entity
+	}
+
+	// If already a map, inject directly
+	if m, ok := entity.(map[string]interface{}); ok {
+		m["__typename"] = typename
+		return m
+	}
+
+	// Convert struct to map via JSON round-trip
+	bytes, err := json.Marshal(entity)
+	if err != nil {
+		return entity
+	}
+
+	var m map[string]interface{}
+	if err := json.Unmarshal(bytes, &m); err != nil {
+		return entity
+	}
+
+	m["__typename"] = typename
+	return m
 }
 
