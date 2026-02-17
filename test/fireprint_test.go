@@ -5,7 +5,6 @@ import (
 )
 import (
 	"context"
-	"encoding/json"
 	"os"
 	"testing"
 )
@@ -88,16 +87,25 @@ type User {
 		t.Fatal("Query returned no data")
 	}
 
-	dataJSON, err := json.Marshal(result.Data)
-	if err != nil {
-		t.Fatalf("Failed to marshal result: %v", err)
+	dataMap, ok := result.Data.(map[string]interface{})
+	if !ok {
+		t.Fatal("Expected data to be a map")
 	}
 
-	expectedJSON := `{"viewer":{"id":"user-1"}}`
-	if string(dataJSON) != expectedJSON {
-		t.Errorf("Expected %s, got %s", expectedJSON, string(dataJSON))
-	} else {
-		t.Logf("✓ viewer { id } query result: %s", string(dataJSON))
+	viewer, ok := dataMap["viewer"].(map[string]interface{})
+	if !ok {
+		t.Fatal("Expected viewer to be a map")
 	}
+
+	if viewer["id"] != "user-1" {
+		t.Errorf("Expected viewer.id to be 'user-1', got %v", viewer["id"])
+	}
+
+	// Verify __typename is auto-injected from struct name
+	if typename, ok := viewer["__typename"].(string); !ok || typename != "User" {
+		t.Errorf("Expected viewer.__typename to be 'User', got %v", viewer["__typename"])
+	}
+
+	t.Logf("✓ viewer { id } query works correctly with __typename auto-injection")
 }
 

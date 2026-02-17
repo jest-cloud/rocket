@@ -23,6 +23,14 @@ type SchemaExecutor interface {
 	ExecuteSubscription(ctx context.Context, query string, variables map[string]interface{}, operationName string) (<-chan interface{}, error)
 }
 
+// ContextBuilderProvider is an optional interface that SchemaExecutor can implement
+// to provide per-request context building (e.g., for authentication).
+// The WebSocket handler calls GetContextBuilder with the HTTP upgrade request
+// so subscriptions receive the same auth context as queries/mutations.
+type ContextBuilderProvider interface {
+	GetContextBuilder() func(r *http.Request) context.Context
+}
+
 // Handler creates a WebSocket handler for GraphQL subscriptions
 func Handler(schema SchemaExecutor) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -33,10 +41,23 @@ func Handler(schema SchemaExecutor) http.HandlerFunc {
 			return
 		}
 
+		// Build base context from HTTP upgrade request using ContextBuilder if available.
+		// This allows subscriptions to receive auth claims from the upgrade request headers.
+		var baseCtx context.Context
+		if provider, ok := schema.(ContextBuilderProvider); ok {
+			if builder := provider.GetContextBuilder(); builder != nil {
+				baseCtx = builder(r)
+			}
+		}
+		if baseCtx == nil {
+			baseCtx = context.Background()
+		}
+
 		// Create a new connection handler
 		handler := &connectionHandler{
 			conn:          conn,
 			schema:        schema,
+			baseCtx:       baseCtx,
 			subscriptions: make(map[string]context.CancelFunc),
 		}
 
@@ -49,6 +70,7 @@ func Handler(schema SchemaExecutor) http.HandlerFunc {
 type connectionHandler struct {
 	conn          *websocket.Conn
 	schema        SchemaExecutor
+	baseCtx       context.Context
 	subscriptions map[string]context.CancelFunc
 	mu            sync.Mutex
 	initialized   bool
@@ -118,8 +140,8 @@ func (h *connectionHandler) handleSubscribe(msg Message) error {
 		return fmt.Errorf("invalid subscribe payload: %w", err)
 	}
 
-	// Create cancellable context for this subscription
-	ctx, cancel := context.WithCancel(context.Background())
+	// Create cancellable context for this subscription, inheriting auth from the upgrade request
+	ctx, cancel := context.WithCancel(h.baseCtx)
 	
 	h.mu.Lock()
 	h.subscriptions[msg.ID] = cancel
