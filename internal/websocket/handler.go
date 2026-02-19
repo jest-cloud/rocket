@@ -11,10 +11,15 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+// SubprotocolGraphQLTransportWS is the WebSocket sub-protocol for the modern
+// graphql-ws protocol (https://github.com/enisdenjo/graphql-ws).
+const SubprotocolGraphQLTransportWS = "graphql-transport-ws"
+
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		return true // TODO: Make this configurable for production
 	},
+	Subprotocols: []string{SubprotocolGraphQLTransportWS},
 }
 
 // SchemaExecutor defines the interface for executing GraphQL subscriptions
@@ -99,17 +104,21 @@ func (h *connectionHandler) handle() {
 	}
 }
 
-// handleMessage processes a single WebSocket message
+// handleMessage processes a single WebSocket message.
+// Supports both the modern graphql-ws protocol and the legacy
+// subscriptions-transport-ws protocol for backward compatibility.
 func (h *connectionHandler) handleMessage(msg Message) error {
 	switch msg.Type {
 	case MessageTypeConnectionInit:
 		return h.handleConnectionInit(msg)
-	case MessageTypeSubscribe:
+	case MessageTypeSubscribe, LegacyMessageTypeStart:
 		return h.handleSubscribe(msg)
-	case MessageTypeComplete:
+	case MessageTypeComplete, LegacyMessageTypeStop:
 		return h.handleComplete(msg)
 	case MessageTypePing:
 		return h.handlePing(msg)
+	case LegacyMessageTypeConnectionTerminate:
+		return fmt.Errorf("connection terminated by client")
 	default:
 		return fmt.Errorf("unknown message type: %s", msg.Type)
 	}
