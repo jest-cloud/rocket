@@ -4,21 +4,31 @@ import (
 	"encoding/json"
 )
 
-// graphql-ws protocol message types
+// graphql-ws protocol message types (modern)
 // https://github.com/enisdenjo/graphql-ws/blob/master/PROTOCOL.md
 const (
 	// Client -> Server
-	MessageTypeConnectionInit      = "connection_init"
-	MessageTypeSubscribe           = "subscribe"
-	MessageTypeComplete            = "complete"
-	MessageTypePing                = "ping"
-	
+	MessageTypeConnectionInit = "connection_init"
+	MessageTypeSubscribe      = "subscribe"
+	MessageTypeComplete       = "complete"
+	MessageTypePing           = "ping"
+
 	// Server -> Client
-	MessageTypeConnectionAck       = "connection_ack"
-	MessageTypeNext                = "next"
-	MessageTypeError               = "error"
+	MessageTypeConnectionAck = "connection_ack"
+	MessageTypeNext          = "next"
+	MessageTypeError         = "error"
 	// MessageTypeComplete is used bidirectionally (already defined above)
-	MessageTypePong                = "pong"
+	MessageTypePong = "pong"
+)
+
+// Legacy subscriptions-transport-ws protocol message types.
+// These are accepted for backward compatibility with older clients and
+// gateways (e.g., Cosmo Router in AUTO sub-protocol mode).
+// https://github.com/apollographql/subscriptions-transport-ws/blob/master/PROTOCOL.md
+const (
+	LegacyMessageTypeStart               = "start"                // equivalent to "subscribe"
+	LegacyMessageTypeStop                = "stop"                 // equivalent to "complete"
+	LegacyMessageTypeConnectionTerminate = "connection_terminate" // client wants to close
 )
 
 // Message represents a graphql-ws protocol message
